@@ -1,0 +1,968 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kalkulator Anggaran (dengan Login & Histori)</title>
+    <!-- Memuat Tailwind CSS untuk styling modern -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Memuat Font Inter dari Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        /* Menggunakan font Inter untuk seluruh halaman */
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        /* Style tambahan untuk input number agar tidak ada panah */
+        input[type=number]::-webkit-inner-spin-button,
+        input[type=number]::-webkit-outer-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
+        }
+        input[type=number] {
+            -moz-appearance: textfield;
+        }
+        /* Custom scrollbar */
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 8px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: #1e293b; /* slate-800 */
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #475569; /* slate-600 */
+            border-radius: 4px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+            background: #64748b; /* slate-500 */
+        }
+    </style>
+</head>
+<body class="bg-slate-900 text-white flex items-center justify-center min-h-screen p-4">
+
+    <!-- Layar Login -->
+    <div id="login-screen" class="w-full max-w-sm">
+        <div class="bg-slate-800 p-8 rounded-2xl shadow-2xl">
+            <h2 class="text-3xl font-bold text-center text-cyan-400 mb-6">Login</h2>
+            <form id="login-form" class="space-y-4">
+                <div>
+                    <label for="username" class="block text-slate-300 mb-1">Username</label>
+                    <input type="text" id="username" class="w-full bg-slate-700 border border-slate-600 rounded-lg p-2 focus:ring-2 focus:ring-cyan-500 transition">
+                </div>
+                <div>
+                    <label for="password" class="block text-slate-300 mb-1">Password</label>
+                    <input type="password" id="password" class="w-full bg-slate-700 border border-slate-600 rounded-lg p-2 focus:ring-2 focus:ring-cyan-500 transition">
+                </div>
+                <p id="login-error" class="text-red-400 text-sm hidden">Username atau password salah.</p>
+                <button type="submit" class="w-full bg-cyan-500 hover:bg-cyan-600 font-semibold rounded-lg p-3 transition-colors !mt-6">Masuk</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Kontainer Aplikasi Utama (Hidden by default) -->
+    <div id="app-container" class="w-full max-w-7xl hidden">
+        <div class="bg-slate-800 rounded-2xl shadow-2xl p-6 md:p-8 space-y-8">
+            <header class="text-center">
+                <h1 class="text-3xl md:text-4xl font-bold text-cyan-400">Kalkulator Anggaran Lengkap</h1>
+                <p class="text-slate-400 mt-2">Selamat datang, <span id="current-user-display" class="font-bold"></span>!</p>
+                 <div class="mt-4 flex justify-center gap-4">
+                    <button id="manage-names-btn" class="bg-gray-600 hover:bg-gray-700 font-semibold rounded-lg px-4 py-2 transition-colors text-sm">
+                        Kelola Nama Tersimpan
+                    </button>
+                    <button id="history-btn" class="bg-indigo-600 hover:bg-indigo-700 font-semibold rounded-lg px-4 py-2 transition-colors text-sm">
+                        Lihat Histori
+                    </button>
+                    <button id="logout-btn" class="bg-red-600 hover:bg-red-700 font-semibold rounded-lg px-4 py-2 transition-colors text-sm">
+                        Logout
+                    </button>
+                </div>
+            </header>
+
+            <!-- Area Input -->
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                <!-- Kolom Pendapatan -->
+                <div class="space-y-4 bg-slate-900/50 p-6 rounded-xl">
+                    <h2 class="text-2xl font-bold text-cyan-400">Input Pendapatan</h2>
+                    <form id="income-form" class="space-y-2">
+                        <input data-field="name" type="text" list="income-names" placeholder="Nama Pemasukan" class="w-full bg-slate-700 border border-slate-600 rounded-lg p-2">
+                        <datalist id="income-names"></datalist>
+                        <input data-field="amount" type="number" placeholder="Jumlah" class="w-full bg-slate-700 border border-slate-600 rounded-lg p-2">
+                        <select data-field="category" class="w-full bg-slate-700 border border-slate-600 rounded-lg p-2">
+                            <option value="Gaji">Gaji</option>
+                            <option value="Transfer">Transfer Masuk</option>
+                            <option value="Bonus">Bonus</option>
+                            <option value="Hasil Usaha">Hasil Usaha</option>
+                            <option value="Lainnya">Lainnya</option>
+                        </select>
+                        <input data-field="date" type="date" class="w-full bg-slate-700 border border-slate-600 rounded-lg p-2 text-slate-400">
+                        <input data-field="note" type="text" placeholder="Catatan (opsional)" class="w-full bg-slate-700 border border-slate-600 rounded-lg p-2">
+                        <button type="submit" class="w-full bg-cyan-500 hover:bg-cyan-600 font-semibold rounded-lg px-4 py-2 transition-colors !mt-4">Tambah</button>
+                    </form>
+                </div>
+
+                <!-- Kolom Pengeluaran -->
+                <div class="space-y-4 bg-slate-900/50 p-6 rounded-xl">
+                    <h2 class="text-2xl font-bold text-red-400">Input Pengeluaran</h2>
+                    <form id="expense-form" class="space-y-2">
+                        <input data-field="name" type="text" list="expense-names" placeholder="Nama Pengeluaran" class="w-full bg-slate-700 border border-slate-600 rounded-lg p-2">
+                        <datalist id="expense-names"></datalist>
+                        <input data-field="amount" type="number" placeholder="Jumlah" class="w-full bg-slate-700 border border-slate-600 rounded-lg p-2">
+                         <select data-field="category" class="w-full bg-slate-700 border border-slate-600 rounded-lg p-2">
+                            <option value="Rumah">Kebutuhan Rumah</option>
+                            <option value="Topup & Tagihan">Topup & Tagihan</option>
+                            <option value="Jajan & Makanan">Jajan & Makanan</option>
+                            <option value="Kendaraan">Kendaraan</option>
+                            <option value="Transfer">Transfer Keluar</option>
+                            <option value="Belanja">Belanja</option>
+                            <option value="Kesehatan">Kesehatan</option>
+                            <option value="Hiburan">Hiburan</option>
+                            <option value="Pendidikan">Pendidikan</option>
+                            <option value="Lainnya">Lainnya</option>
+                        </select>
+                        <input data-field="date" type="date" class="w-full bg-slate-700 border border-slate-600 rounded-lg p-2 text-slate-400">
+                        <input data-field="note" type="text" placeholder="Catatan (opsional)" class="w-full bg-slate-700 border border-slate-600 rounded-lg p-2">
+                        <button type="submit" class="w-full bg-red-500 hover:bg-red-600 font-semibold rounded-lg px-4 py-2 transition-colors !mt-4">Tambah</button>
+                    </form>
+                </div>
+
+                <!-- Kolom Tabungan -->
+                <div class="space-y-4 bg-slate-900/50 p-6 rounded-xl">
+                    <h2 class="text-2xl font-bold text-green-400">Input Tabungan</h2>
+                    <form id="savings-form" class="space-y-2">
+                        <input data-field="name" type="text" list="savings-names" placeholder="Tujuan Tabungan" class="w-full bg-slate-700 border border-slate-600 rounded-lg p-2">
+                        <datalist id="savings-names"></datalist>
+                        <input data-field="amount" type="number" placeholder="Jumlah" class="w-full bg-slate-700 border border-slate-600 rounded-lg p-2">
+                        <input data-field="date" type="date" class="w-full bg-slate-700 border border-slate-600 rounded-lg p-2 text-slate-400">
+                        <input data-field="note" type="text" placeholder="Catatan (opsional)" class="w-full bg-slate-700 border border-slate-600 rounded-lg p-2">
+                        <div class="h-[3.35rem]"></div> <!-- Spacer -->
+                        <button type="submit" class="w-full bg-green-500 hover:bg-green-600 font-semibold rounded-lg px-4 py-2 transition-colors !mt-4">Tambah</button>
+                    </form>
+                </div>
+                
+                <!-- Kolom Hutang -->
+                <div class="space-y-4 bg-slate-900/50 p-6 rounded-xl">
+                    <h2 class="text-2xl font-bold text-yellow-400">Input Hutang</h2>
+                    <form id="debt-form" class="space-y-2">
+                        <input data-field="name" type="text" list="debt-names" placeholder="Deskripsi Hutang" class="w-full bg-slate-700 border border-slate-600 rounded-lg p-2">
+                        <datalist id="debt-names"></datalist>
+                        <input data-field="amount" type="number" placeholder="Jumlah" class="w-full bg-slate-700 border border-slate-600 rounded-lg p-2">
+                        <input data-field="date" type="date" class="w-full bg-slate-700 border border-slate-600 rounded-lg p-2 text-slate-400">
+                        <input data-field="note" type="text" placeholder="Catatan (opsional)" class="w-full bg-slate-700 border border-slate-600 rounded-lg p-2">
+                        <div class="h-[3.35rem]"></div> <!-- Spacer -->
+                        <button type="submit" class="w-full bg-yellow-500 hover:bg-yellow-600 font-semibold rounded-lg px-4 py-2 transition-colors !mt-4">Tambah</button>
+                    </form>
+                </div>
+
+                <!-- Kolom Piutang -->
+                <div class="space-y-4 bg-slate-900/50 p-6 rounded-xl">
+                    <h2 class="text-2xl font-bold text-blue-400">Input Piutang</h2>
+                    <form id="receivable-form" class="space-y-2">
+                        <input data-field="name" type="text" list="receivable-names" placeholder="Deskripsi Piutang" class="w-full bg-slate-700 border border-slate-600 rounded-lg p-2">
+                        <datalist id="receivable-names"></datalist>
+                        <input data-field="amount" type="number" placeholder="Jumlah" class="w-full bg-slate-700 border border-slate-600 rounded-lg p-2">
+                        <input data-field="date" type="date" class="w-full bg-slate-700 border border-slate-600 rounded-lg p-2 text-slate-400">
+                         <input data-field="note" type="text" placeholder="Catatan (opsional)" class="w-full bg-slate-700 border border-slate-600 rounded-lg p-2">
+                        <div class="h-[3.35rem]"></div> <!-- Spacer -->
+                        <button type="submit" class="w-full bg-blue-500 hover:bg-blue-600 font-semibold rounded-lg px-4 py-2 transition-colors !mt-4">Tambah</button>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Bagian Evaluasi dan Filter -->
+            <div class="bg-slate-900/50 p-6 rounded-xl space-y-4">
+                <h2 class="text-2xl font-bold text-white text-center">Evaluasi & Filter Transaksi</h2>
+                <div id="filter-container" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-4 items-end">
+                    <div>
+                        <label for="filter-type" class="block text-sm font-medium text-slate-300 mb-1">Tipe Transaksi</label>
+                        <select id="filter-type" class="w-full bg-slate-700 border border-slate-600 rounded-lg p-2">
+                            <option value="semua">Semua Tipe</option>
+                            <option value="income">Pendapatan</option>
+                            <option value="expense">Pengeluaran</option>
+                            <option value="savings">Tabungan</option>
+                            <option value="debt">Hutang</option>
+                            <option value="receivable">Piutang</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label for="filter-start-date" class="block text-sm font-medium text-slate-300 mb-1">Dari Tanggal</label>
+                        <input type="date" id="filter-start-date" class="w-full bg-slate-700 border border-slate-600 rounded-lg p-2 text-slate-400">
+                    </div>
+                    <div>
+                        <label for="filter-end-date" class="block text-sm font-medium text-slate-300 mb-1">Sampai Tanggal</label>
+                        <input type="date" id="filter-end-date" class="w-full bg-slate-700 border border-slate-600 rounded-lg p-2 text-slate-400">
+                    </div>
+                     <div>
+                        <label for="filter-name" class="block text-sm font-medium text-slate-300 mb-1">Cari Nama</label>
+                        <input type="text" id="filter-name" placeholder="cth: Listrik" class="w-full bg-slate-700 border border-slate-600 rounded-lg p-2">
+                    </div>
+                    <div>
+                        <label id="filter-category-label" for="filter-category" class="block text-sm font-medium text-slate-300 mb-1">Kategori</label>
+                        <select id="filter-category" class="w-full bg-slate-700 border border-slate-600 rounded-lg p-2">
+                            <!-- Opsi akan ditambahkan oleh JS -->
+                        </select>
+                    </div>
+                    <div class="flex gap-2">
+                        <button id="apply-filter-btn" class="w-full bg-indigo-500 hover:bg-indigo-600 font-semibold rounded-lg px-4 py-2 transition-colors">Terapkan</button>
+                        <button id="reset-filter-btn" class="w-full bg-slate-600 hover:bg-slate-700 font-semibold rounded-lg px-4 py-2 transition-colors">Reset</button>
+                    </div>
+                </div>
+                <div id="filtered-summary-container" class="text-center pt-2 hidden">
+                    <p class="text-lg">Total Hasil Filter: <span id="filtered-total" class="font-bold text-indigo-400"></span></p>
+                </div>
+            </div>
+
+
+            <!-- Kolom Catatan Terpadu -->
+            <div class="bg-slate-900/50 p-6 rounded-xl">
+                <h2 id="records-title" class="text-2xl font-bold text-white text-center mb-4">Semua Catatan Transaksi</h2>
+                <div id="all-records-list" class="space-y-2 max-h-96 overflow-y-auto pr-2 custom-scrollbar">
+                    <!-- Semua catatan akan muncul di sini -->
+                </div>
+            </div>
+            
+            <!-- Ringkasan Anggaran Keseluruhan -->
+            <footer class="bg-slate-900/70 p-6 rounded-xl mt-6">
+                <h3 class="text-2xl font-bold text-center text-cyan-300 mb-4">Ringkasan Keuangan Total</h3>
+                <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 text-center">
+                    <div><p class="text-slate-400 text-sm">Total Pendapatan</p><p id="total-income" class="text-xl font-semibold text-cyan-400">Rp 0</p></div>
+                    <div><p class="text-slate-400 text-sm">Total Pengeluaran</p><p id="total-expenses" class="text-xl font-semibold text-red-400">Rp 0</p></div>
+                    <div><p class="text-slate-400 text-sm">Total Tabungan</p><p id="total-savings" class="text-xl font-semibold text-green-400">Rp 0</p></div>
+                    <div><p class="text-slate-400 text-sm">Hutang Aktif</p><p id="total-debts" class="text-xl font-semibold text-yellow-400">Rp 0</p></div>
+                    <div><p class="text-slate-400 text-sm">Piutang Aktif</p><p id="total-receivables" class="text-xl font-semibold text-blue-400">Rp 0</p></div>
+                    <div><p class="text-slate-400 text-sm font-bold">Sisa Uang</p><p id="remaining-balance" class="text-xl font-bold text-white">Rp 0</p></div>
+                </div>
+            </footer>
+        </div>
+    </div>
+
+    <!-- Modal Edit Transaksi -->
+    <div id="edit-modal" class="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center p-4 hidden">
+        <div class="bg-slate-800 rounded-xl shadow-2xl p-6 w-full max-w-md space-y-4">
+            <h3 class="text-2xl font-bold text-white">Edit Catatan</h3>
+            <form id="edit-form" class="space-y-4">
+                 <div>
+                    <label for="edit-name" class="block text-sm font-medium text-slate-300 mb-1">Nama</label>
+                    <input type="text" id="edit-name" class="w-full bg-slate-700 border border-slate-600 rounded-lg p-2">
+                </div>
+                <div>
+                    <label for="edit-amount" class="block text-sm font-medium text-slate-300 mb-1">Jumlah</label>
+                    <input type="number" id="edit-amount" class="w-full bg-slate-700 border border-slate-600 rounded-lg p-2">
+                </div>
+                <div id="edit-category-container" class="hidden">
+                    <label for="edit-category" class="block text-sm font-medium text-slate-300 mb-1">Kategori</label>
+                    <select id="edit-category" class="w-full bg-slate-700 border border-slate-600 rounded-lg p-2"></select>
+                </div>
+                <div>
+                    <label for="edit-date" class="block text-sm font-medium text-slate-300 mb-1">Tanggal</label>
+                    <input type="date" id="edit-date" class="w-full bg-slate-700 border border-slate-600 rounded-lg p-2 text-slate-400">
+                </div>
+                 <div>
+                    <label for="edit-note" class="block text-sm font-medium text-slate-300 mb-1">Catatan</label>
+                    <input type="text" id="edit-note" class="w-full bg-slate-700 border border-slate-600 rounded-lg p-2">
+                </div>
+                <div class="flex justify-end gap-4 pt-4">
+                    <button type="button" id="cancel-edit-btn" class="bg-slate-600 hover:bg-slate-700 font-semibold rounded-lg px-4 py-2 transition-colors">Batal</button>
+                    <button type="submit" class="bg-cyan-500 hover:bg-cyan-600 font-semibold rounded-lg px-4 py-2 transition-colors">Simpan Perubahan</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    
+    <!-- Modal Kelola Nama -->
+    <div id="manage-names-modal" class="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center p-4 hidden">
+        <div class="bg-slate-800 rounded-xl shadow-2xl p-6 w-full max-w-2xl space-y-4">
+            <div class="flex justify-between items-center">
+                <h3 class="text-2xl font-bold text-white">Kelola Nama Tersimpan</h3>
+                <button id="close-manage-names-btn" class="text-slate-400 hover:text-white text-3xl leading-none">&times;</button>
+            </div>
+            <div id="manage-names-content" class="grid grid-cols-1 md:grid-cols-2 gap-6 max-h-[60vh] overflow-y-auto custom-scrollbar p-2">
+                <!-- Konten dinamis untuk setiap tipe nama -->
+            </div>
+        </div>
+    </div>
+    
+    <!-- Modal Histori -->
+    <div id="history-modal" class="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center p-4 hidden">
+        <div class="bg-slate-800 rounded-xl shadow-2xl p-6 w-full max-w-3xl space-y-4">
+            <div class="flex justify-between items-center">
+                <h3 class="text-2xl font-bold text-white">Histori Aplikasi</h3>
+                <button id="close-history-btn" class="text-slate-400 hover:text-white text-3xl leading-none">&times;</button>
+            </div>
+            <div class="border-b border-gray-700">
+                <nav class="flex space-x-4" aria-label="Tabs">
+                    <button id="tab-login-history" class="text-indigo-400 border-indigo-400 whitespace-nowrap py-2 px-1 border-b-2 font-medium text-sm">
+                        Histori Login
+                    </button>
+                    <button id="tab-audit-log" class="text-gray-400 hover:text-gray-200 hover:border-gray-500 whitespace-nowrap py-2 px-1 border-b-2 font-medium text-sm">
+                        Histori Perubahan
+                    </button>
+                </nav>
+            </div>
+            <div id="login-history-content" class="max-h-[60vh] overflow-y-auto custom-scrollbar p-1"></div>
+            <div id="audit-log-content" class="max-h-[60vh] overflow-y-auto custom-scrollbar p-1 hidden"></div>
+        </div>
+    </div>
+
+
+    <!-- Custom Modals (Alert, Confirm, Prompt) -->
+    <div id="custom-alert-modal" class="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center p-4 hidden">
+        <div class="bg-slate-800 rounded-xl shadow-2xl p-6 w-full max-w-sm space-y-4 text-center">
+            <h3 id="custom-alert-title" class="text-xl font-bold text-white">Peringatan</h3>
+            <p id="custom-alert-message" class="text-slate-300"></p>
+            <button id="custom-alert-ok-btn" class="bg-cyan-500 hover:bg-cyan-600 font-semibold rounded-lg px-6 py-2 transition-colors">OK</button>
+        </div>
+    </div>
+
+    <div id="custom-confirm-modal" class="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center p-4 hidden">
+        <div class="bg-slate-800 rounded-xl shadow-2xl p-6 w-full max-w-sm space-y-4 text-center">
+            <h3 id="custom-confirm-title" class="text-xl font-bold text-white">Konfirmasi</h3>
+            <p id="custom-confirm-message" class="text-slate-300"></p>
+            <div class="flex justify-center gap-4 pt-4">
+                <button id="custom-confirm-cancel-btn" class="bg-slate-600 hover:bg-slate-700 font-semibold rounded-lg px-6 py-2 transition-colors">Batal</button>
+                <button id="custom-confirm-ok-btn" class="bg-red-500 hover:bg-red-600 font-semibold rounded-lg px-6 py-2 transition-colors">Ya</button>
+            </div>
+        </div>
+    </div>
+
+     <div id="custom-prompt-modal" class="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center p-4 hidden">
+        <div class="bg-slate-800 rounded-xl shadow-2xl p-6 w-full max-w-sm space-y-4">
+            <h3 id="custom-prompt-title" class="text-xl font-bold text-white">Input Diperlukan</h3>
+            <p id="custom-prompt-message" class="text-slate-300 mb-2"></p>
+            <input type="text" id="custom-prompt-input" class="w-full bg-slate-700 border border-slate-600 rounded-lg p-2">
+            <div class="flex justify-end gap-4 pt-4">
+                <button id="custom-prompt-cancel-btn" class="bg-slate-600 hover:bg-slate-700 font-semibold rounded-lg px-6 py-2 transition-colors">Batal</button>
+                <button id="custom-prompt-ok-btn" class="bg-cyan-500 hover:bg-cyan-600 font-semibold rounded-lg px-6 py-2 transition-colors">Simpan</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+    document.addEventListener('DOMContentLoaded', () => {
+        // --- STATE APLIKASI GLOBAL ---
+        let appData = {};
+        let currentUser = null;
+        let allRecords = [];
+        let savedNames = {};
+        let editingRecordId = null;
+
+        // --- SELEKSI ELEMEN DOM ---
+        const getEl = (id) => document.getElementById(id);
+        const loginScreen = getEl('login-screen');
+        const appContainer = getEl('app-container');
+        const loginForm = getEl('login-form');
+        const loginError = getEl('login-error');
+        const currentUserDisplay = getEl('current-user-display');
+        const logoutBtn = getEl('logout-btn');
+        const forms = {
+            income: getEl('income-form'), expense: getEl('expense-form'), savings: getEl('savings-form'), debt: getEl('debt-form'), receivable: getEl('receivable-form'),
+        };
+        const allRecordsList = getEl('all-records-list');
+        const summaryElements = {
+            totalIncome: getEl('total-income'), totalExpenses: getEl('total-expenses'), totalSavings: getEl('total-savings'), totalDebts: getEl('total-debts'), totalReceivables: getEl('total-receivables'), remainingBalance: getEl('remaining-balance')
+        };
+        const editModal = getEl('edit-modal');
+        const editForm = getEl('edit-form');
+        const cancelEditBtn = getEl('cancel-edit-btn');
+        const manageNamesModal = getEl('manage-names-modal');
+        const manageNamesBtn = getEl('manage-names-btn');
+        const closeManageNamesBtn = getEl('close-manage-names-btn');
+        const manageNamesContent = getEl('manage-names-content');
+        const historyBtn = getEl('history-btn');
+        const historyModal = getEl('history-modal');
+        const closeHistoryBtn = getEl('close-history-btn');
+        const tabLoginHistory = getEl('tab-login-history');
+        const tabAuditLog = getEl('tab-audit-log');
+        const loginHistoryContent = getEl('login-history-content');
+        const auditLogContent = getEl('audit-log-content');
+        const filterControls = {
+            type: getEl('filter-type'), start: getEl('filter-start-date'), end: getEl('filter-end-date'), name: getEl('filter-name'), category: getEl('filter-category'), categoryLabel: getEl('filter-category-label'), applyBtn: getEl('apply-filter-btn'), resetBtn: getEl('reset-filter-btn'), summaryContainer: getEl('filtered-summary-container'), filteredTotal: getEl('filtered-total'), recordsTitle: getEl('records-title')
+        };
+        
+        // --- SVG ICONS ---
+        const trashIconSVG = `<svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg"><path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd"></path></svg>`;
+        const checkIconSVG = `<svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"></path></svg>`;
+        const editIconSVG = `<svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg"><path d="M17.414 2.586a2 2 0 00-2.828 0L7 10.172V13h2.828l7.586-7.586a2 2 0 000-2.828z"></path><path fill-rule="evenodd" d="M2 6a2 2 0 012-2h4a1 1 0 010 2H4v10h10v-4a1 1 0 112 0v4a2 2 0 01-2 2H4a2 2 0 01-2-2V6z" clip-rule="evenodd"></path></svg>`;
+        const calendarIconSVG = `<svg class="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg"><path fill-rule="evenodd" d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z" clip-rule="evenodd"></path></svg>`;
+        const noteIconSVG = `<svg class="w-4 h-4 mr-1.5" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg"><path d="M4 3a2 2 0 100 4h12a2 2 0 100-4H4z"></path><path fill-rule="evenodd" d="M3 8h14v7a2 2 0 01-2 2H5a2 2 0 01-2-2V8zm5 3a1 1 0 011-1h2a1 1 0 110 2H9a1 1 0 01-1-1z" clip-rule="evenodd"></path></svg>`;
+        
+        // --- Custom Modal Logic ---
+        const customAlert = { modal: getEl('custom-alert-modal'), title: getEl('custom-alert-title'), message: getEl('custom-alert-message'), okBtn: getEl('custom-alert-ok-btn')};
+        const customConfirm = { modal: getEl('custom-confirm-modal'), title: getEl('custom-confirm-title'), message: getEl('custom-confirm-message'), okBtn: getEl('custom-confirm-ok-btn'), cancelBtn: getEl('custom-confirm-cancel-btn') };
+        const customPrompt = { modal: getEl('custom-prompt-modal'), title: getEl('custom-prompt-title'), message: getEl('custom-prompt-message'), input: getEl('custom-prompt-input'), okBtn: getEl('custom-prompt-ok-btn'), cancelBtn: getEl('custom-prompt-cancel-btn') };
+
+        const showAlert = (message, title = 'Peringatan') => {
+            customAlert.title.textContent = title;
+            customAlert.message.textContent = message;
+            customAlert.modal.classList.remove('hidden');
+            return new Promise(resolve => {
+                customAlert.okBtn.onclick = () => {
+                    customAlert.modal.classList.add('hidden');
+                    resolve();
+                };
+            });
+        };
+
+        const showConfirm = (message, title = 'Konfirmasi') => {
+            customConfirm.title.textContent = title;
+            customConfirm.message.textContent = message;
+            customConfirm.modal.classList.remove('hidden');
+            return new Promise((resolve) => {
+                const handleOk = () => { customConfirm.modal.classList.add('hidden'); resolve(true); removeListeners(); };
+                const handleCancel = () => { customConfirm.modal.classList.add('hidden'); resolve(false); removeListeners(); };
+                const removeListeners = () => {
+                    customConfirm.okBtn.removeEventListener('click', handleOk);
+                    customConfirm.cancelBtn.removeEventListener('click', handleCancel);
+                };
+                customConfirm.okBtn.addEventListener('click', handleOk);
+                customConfirm.cancelBtn.addEventListener('click', handleCancel);
+            });
+        };
+
+        const showPrompt = (message, defaultValue = '', title = 'Input Diperlukan') => {
+            customPrompt.title.textContent = title;
+            customPrompt.message.textContent = message;
+            customPrompt.input.value = defaultValue;
+            customPrompt.modal.classList.remove('hidden');
+            customPrompt.input.focus();
+            return new Promise((resolve) => {
+                const handleOk = () => {
+                    customPrompt.modal.classList.add('hidden');
+                    resolve(customPrompt.input.value);
+                    removeListeners();
+                };
+                 const handleCancel = () => {
+                    customPrompt.modal.classList.add('hidden');
+                    resolve(null);
+                    removeListeners();
+                };
+                const removeListeners = () => {
+                    customPrompt.okBtn.removeEventListener('click', handleOk);
+                    customPrompt.cancelBtn.removeEventListener('click', handleCancel);
+                };
+                customPrompt.okBtn.addEventListener('click', handleOk);
+                customPrompt.cancelBtn.addEventListener('click', handleCancel);
+            });
+        };
+
+        // --- FUNGSI ---
+        const formatRupiah = (amount) => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(amount);
+        const formatTimestamp = (isoString) => new Date(isoString).toLocaleString('id-ID', { dateStyle: 'medium', timeStyle: 'short' });
+        const getTodayString = () => new Date().toISOString().slice(0, 10);
+        const formatDate = (dateString) => {
+            if (!dateString) return '';
+            const date = new Date(dateString);
+            const userTimezoneOffset = date.getTimezoneOffset() * 60000;
+            return new Date(date.getTime() + userTimezoneOffset).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' });
+        };
+        
+        function loadDataFromStorage() {
+            const data = localStorage.getItem('budgetAppData');
+            if (data) {
+                appData = JSON.parse(data);
+            } else {
+                // Inisialisasi data awal jika tidak ada
+                appData = {
+                    users: {
+                        andre: 'andre180125',
+                        dila: 'dila180125'
+                    },
+                    userData: {
+                        andre: { allRecords: [], savedNames: { income: [], expense: [], savings: [], debt: [], receivable: [] } },
+                        dila: { allRecords: [], savedNames: { income: [], expense: [], savings: [], debt: [], receivable: [] } }
+                    },
+                    loginHistory: [],
+                    auditLog: []
+                };
+                saveDataToStorage();
+            }
+        }
+        
+        function saveDataToStorage() {
+            // Sebelum menyimpan, update data user saat ini ke object utama
+            if (currentUser) {
+                appData.userData[currentUser] = {
+                    allRecords: allRecords,
+                    savedNames: savedNames
+                };
+            }
+            localStorage.setItem('budgetAppData', JSON.stringify(appData));
+        }
+        
+        function logAction(user, action, details) {
+            appData.auditLog.push({ user, action, details, timestamp: new Date().toISOString() });
+            saveDataToStorage();
+        }
+
+        function renderAll() {
+            renderRecords();
+            updateOverallSummary();
+            populateDatalists();
+        }
+
+        function renderRecords(recordsToRender = allRecords) {
+            allRecordsList.innerHTML = '';
+            recordsToRender.sort((a, b) => new Date(b.date) - new Date(a.date));
+            
+            if (recordsToRender.length === 0) {
+                allRecordsList.innerHTML = `<p class="text-slate-500 text-center italic">Tidak ada catatan yang cocok.</p>`;
+                return;
+            }
+            
+            recordsToRender.forEach(item => {
+                const itemDiv = createListItem(item);
+                allRecordsList.appendChild(itemDiv);
+            });
+        }
+
+        function createListItem(item) {
+            const { id, type, name, amount, category, date, note, isPaid = false } = item;
+            const itemDiv = document.createElement('div');
+            const typeConfig = {
+                income: { color: 'text-cyan-300', catBg: 'bg-cyan-500/20', catColor: 'text-cyan-400', label: 'Pendapatan' },
+                expense: { color: 'text-red-300', catBg: 'bg-red-500/20', catColor: 'text-red-400', label: 'Pengeluaran' },
+                savings: { color: 'text-green-300', label: 'Tabungan' },
+                debt: { color: 'text-yellow-300', label: 'Hutang' },
+                receivable: { color: 'text-blue-300', label: 'Piutang' }
+            };
+            const config = typeConfig[type];
+            const categoryHTML = category ? `<span class="text-xs ${config.catBg} ${config.catColor} px-2 py-1 rounded-full">${category}</span>` : `<span class="text-xs bg-slate-600 text-slate-300 px-2 py-1 rounded-full">${config.label}</span>`;
+            
+            const noteHTML = note ? `<div class="flex items-center text-xs text-slate-400 mt-1.5">${noteIconSVG} <span class="italic">${note}</span></div>` : '';
+
+            let actionButtons = `
+                <button data-id="${id}" class="edit-btn text-slate-400 hover:text-white transition-colors mr-2">${editIconSVG}</button>
+                <button data-id="${id}" class="delete-btn text-slate-400 hover:text-white transition-colors">${trashIconSVG}</button>`;
+                
+            if (type === 'debt' || type === 'receivable') {
+                actionButtons = `
+                    <button data-id="${id}" class="toggle-paid-btn text-slate-400 ${isPaid ? 'text-green-400' : 'hover:text-green-400'} transition-colors mr-2">
+                        ${checkIconSVG}
+                    </button>
+                    ${actionButtons}
+                `;
+            }
+
+            itemDiv.className = `bg-slate-700 p-3 rounded-lg flex justify-between items-center transition-opacity ${isPaid ? 'opacity-50' : ''}`;
+            itemDiv.innerHTML = `
+                <div class="flex flex-col flex-grow mr-2">
+                    <span class="font-medium text-sm text-white ${isPaid ? 'line-through' : ''}">${name}</span>
+                    <div class="flex items-center text-xs text-slate-400 mt-1">
+                        ${calendarIconSVG}
+                        <span>${formatDate(date)}</span>
+                        <span class="mx-2">|</span>
+                        ${categoryHTML}
+                    </div>
+                    ${noteHTML}
+                </div>
+                <div class="flex items-center">
+                    <span class="font-semibold ${config.color} mr-4 ${isPaid ? 'line-through' : ''}">${formatRupiah(amount)}</span>
+                    <div class="flex items-center">${actionButtons}</div>
+                </div>`;
+            return itemDiv;
+        }
+
+        function updateOverallSummary() {
+            const totalIncome = allRecords.filter(r => r.type === 'income').reduce((sum, item) => sum + item.amount, 0);
+            const totalExpenses = allRecords.filter(r => r.type === 'expense').reduce((sum, item) => sum + item.amount, 0);
+            const totalSavings = allRecords.filter(r => r.type === 'savings').reduce((sum, item) => sum + item.amount, 0);
+            const totalDebts = allRecords.filter(r => r.type === 'debt' && !r.isPaid).reduce((sum, item) => sum + item.amount, 0);
+            const totalReceivables = allRecords.filter(r => r.type === 'receivable' && !r.isPaid).reduce((sum, item) => sum + item.amount, 0);
+            const remainingBalance = totalIncome - totalExpenses - totalSavings;
+
+            summaryElements.totalIncome.textContent = formatRupiah(totalIncome);
+            summaryElements.totalExpenses.textContent = formatRupiah(totalExpenses);
+            summaryElements.totalSavings.textContent = formatRupiah(totalSavings);
+            summaryElements.totalDebts.textContent = formatRupiah(totalDebts);
+            summaryElements.totalReceivables.textContent = formatRupiah(totalReceivables);
+            
+            const balanceEl = summaryElements.remainingBalance;
+            balanceEl.className = 'text-xl font-bold ';
+            if (remainingBalance > 0) balanceEl.classList.add('text-green-400');
+            else if (remainingBalance === 0) balanceEl.classList.add('text-yellow-400');
+            else balanceEl.classList.add('text-red-400');
+        }
+
+        function handleFormSubmit(event, type) {
+            event.preventDefault();
+            const form = event.target;
+            const name = form.querySelector('[data-field="name"]').value.trim();
+            const amount = parseFloat(form.querySelector('[data-field="amount"]').value);
+            const date = form.querySelector('[data-field="date"]').value || getTodayString();
+            const note = form.querySelector('[data-field="note"]').value.trim();
+            const categoryEl = form.querySelector('[data-field="category"]');
+            
+            if (name && amount > 0) {
+                if (!savedNames[type].includes(name)) {
+                    savedNames[type].push(name);
+                }
+
+                const newRecord = { id: Date.now(), type, name, amount, date, note, isPaid: false };
+                if (categoryEl) newRecord.category = categoryEl.value;
+                
+                allRecords.push(newRecord);
+                form.reset();
+                form.querySelector('[data-field="date"]').value = getTodayString();
+                logAction(currentUser, `Tambah ${type}`, `${name} - ${formatRupiah(amount)}`);
+                renderAll();
+            }
+        }
+        
+        function openEditModal(id) {
+            const record = allRecords.find(r => r.id === id);
+            if (!record) return;
+
+            editingRecordId = id;
+            const editNameInput = getEl('edit-name');
+            editNameInput.value = record.name;
+            editNameInput.setAttribute('list', `${record.type}-names`);
+            
+            getEl('edit-amount').value = record.amount;
+            getEl('edit-date').value = record.date;
+            getEl('edit-note').value = record.note || '';
+            
+            const categoryContainer = getEl('edit-category-container');
+            const categorySelect = getEl('edit-category');
+
+            if (record.type === 'income' || record.type === 'expense') {
+                const sourceSelect = document.querySelector(`#${record.type}-form select`);
+                categorySelect.innerHTML = sourceSelect.innerHTML;
+                categorySelect.value = record.category;
+                categoryContainer.classList.remove('hidden');
+            } else {
+                categoryContainer.classList.add('hidden');
+            }
+
+            editModal.classList.remove('hidden');
+        }
+
+        function closeEditModal() { editingRecordId = null; editModal.classList.add('hidden'); }
+
+        function populateDatalists() {
+            Object.keys(savedNames).forEach(type => {
+                const datalist = document.getElementById(`${type}-names`);
+                if (datalist) {
+                    datalist.innerHTML = '';
+                    savedNames[type].forEach(name => {
+                        const option = document.createElement('option');
+                        option.value = name;
+                        datalist.appendChild(option);
+                    });
+                }
+            });
+        }
+        
+        function openManageNamesModal() {
+            manageNamesContent.innerHTML = '';
+            const typeLabels = { income: 'Pendapatan', expense: 'Pengeluaran', savings: 'Tabungan', debt: 'Hutang', receivable: 'Piutang' };
+            
+            Object.keys(savedNames).forEach(type => {
+                const container = document.createElement('div');
+                container.innerHTML = `<h4 class="text-lg font-bold text-slate-300 mb-2">${typeLabels[type]}</h4>`;
+                const list = document.createElement('ul');
+                list.className = 'space-y-2';
+                savedNames[type].forEach(name => {
+                    const li = document.createElement('li');
+                    li.className = 'flex items-center justify-between bg-slate-700 p-2 rounded-lg';
+                    li.innerHTML = `
+                        <span class="flex-grow">${name}</span>
+                        <div class="flex items-center">
+                            <button data-type="${type}" data-name="${name}" class="edit-saved-name-btn text-slate-400 hover:text-white mr-2">${editIconSVG}</button>
+                            <button data-type="${type}" data-name="${name}" class="delete-saved-name-btn text-slate-400 hover:text-white">${trashIconSVG}</button>
+                        </div>
+                    `;
+                    list.appendChild(li);
+                });
+                container.appendChild(list);
+                manageNamesContent.appendChild(container);
+            });
+
+            manageNamesModal.classList.remove('hidden');
+        }
+
+        async function handleEditSavedName(e) {
+            const button = e.target.closest('button');
+            const type = button.dataset.type;
+            const oldName = button.dataset.name;
+            
+            const newNameRaw = await showPrompt(`Edit nama "${oldName}":`, oldName, 'Edit Nama Tersimpan');
+            
+            if (newNameRaw === null) return; 
+            const newName = newNameRaw.trim();
+            if (newName === '' || newName === oldName) return;
+
+            if (savedNames[type].includes(newName)) {
+                const confirmed = await showConfirm(
+                    `Nama "${newName}" sudah ada. Apakah Anda ingin menggabungkan semua transaksi dari "${oldName}" menjadi "${newName}"?`,
+                    'Konfirmasi Gabungkan Nama'
+                );
+
+                if (confirmed) {
+                    allRecords.forEach(record => {
+                        if (record.type === type && record.name === oldName) {
+                            record.name = newName;
+                        }
+                    });
+                    savedNames[type] = savedNames[type].filter(name => name !== oldName);
+                    logAction(currentUser, 'Gabung Nama Tersimpan', `"${oldName}" -> "${newName}"`);
+                    openManageNamesModal();
+                    renderAll();
+                }
+            } else {
+                const nameIndex = savedNames[type].indexOf(oldName);
+                if (nameIndex > -1) {
+                    savedNames[type][nameIndex] = newName;
+                    allRecords.forEach(record => {
+                        if (record.type === type && record.name === oldName) {
+                            record.name = newName;
+                        }
+                    });
+                    logAction(currentUser, 'Edit Nama Tersimpan', `"${oldName}" -> "${newName}"`);
+                    openManageNamesModal();
+                    renderAll();
+                }
+            }
+        }
+        
+        async function handleDeleteSavedName(e) {
+            const button = e.target.closest('button');
+            const type = button.dataset.type;
+            const nameToDelete = button.dataset.name;
+            
+            const isUsed = allRecords.some(record => record.type === type && record.name === nameToDelete);
+            
+            if (isUsed) {
+                await showAlert(`Nama "${nameToDelete}" tidak bisa dihapus karena sedang digunakan dalam transaksi.`);
+                return;
+            }
+            
+            const confirmed = await showConfirm(`Anda yakin ingin menghapus nama "${nameToDelete}"?`, 'Konfirmasi Hapus');
+            if (confirmed) {
+                 savedNames[type] = savedNames[type].filter(name => name !== nameToDelete);
+                 logAction(currentUser, 'Hapus Nama Tersimpan', `"${nameToDelete}"`);
+                 openManageNamesModal();
+                 populateDatalists();
+            }
+        }
+        
+        function updateFilterCategoryOptions() {
+            const selectedType = filterControls.type.value;
+            const categorySelect = filterControls.category;
+            const categoryLabel = filterControls.categoryLabel;
+
+            categorySelect.innerHTML = '<option value="semua">Semua Kategori</option>';
+            
+            if (selectedType === 'expense' || selectedType === 'income') {
+                const sourceForm = forms[selectedType];
+                const sourceOptions = sourceForm.querySelector('select').options;
+                for (let option of sourceOptions) {
+                    categorySelect.add(new Option(option.text, option.value));
+                }
+                categorySelect.disabled = false;
+                categoryLabel.classList.remove('opacity-50');
+            } else {
+                categorySelect.disabled = true;
+                categoryLabel.classList.add('opacity-50');
+                categorySelect.value = 'semua';
+            }
+        }
+
+        function applyFilters() {
+            const typeFilter = filterControls.type.value;
+            const startDate = filterControls.start.value;
+            const endDate = filterControls.end.value;
+            const category = filterControls.category.value;
+            const nameFilter = filterControls.name.value.toLowerCase().trim();
+
+            let filteredRecords = allRecords;
+
+            if (typeFilter !== 'semua') {
+                filteredRecords = filteredRecords.filter(r => r.type === typeFilter);
+            }
+            
+            filteredRecords = filteredRecords.filter(record => {
+                const recordDate = new Date(record.date);
+                recordDate.setMinutes(recordDate.getMinutes() + recordDate.getTimezoneOffset());
+
+                const start = startDate ? new Date(startDate) : null;
+                const end = endDate ? new Date(endDate) : null;
+
+                if (start && recordDate < start) return false;
+                if (end && recordDate > end) return false;
+                if (nameFilter && !record.name.toLowerCase().includes(nameFilter)) return false;
+
+                if ( (record.type === 'expense' || record.type === 'income') && category !== 'semua' && record.category !== category ) {
+                    return false;
+                }
+                
+                return true;
+            });
+            
+            renderRecords(filteredRecords);
+
+            const filteredTotalAmount = filteredRecords.reduce((sum, item) => sum + item.amount, 0);
+            filterControls.filteredTotal.textContent = formatRupiah(filteredTotalAmount);
+            filterControls.summaryContainer.classList.remove('hidden');
+            filterControls.recordsTitle.textContent = "Hasil Filter Transaksi";
+        }
+
+        function resetFilters() {
+            filterControls.type.value = 'semua';
+            filterControls.start.value = '';
+            filterControls.end.value = '';
+            filterControls.name.value = '';
+            filterControls.summaryContainer.classList.add('hidden');
+            filterControls.recordsTitle.textContent = "Semua Catatan Transaksi";
+            updateFilterCategoryOptions();
+            renderRecords();
+        }
+        
+        function showHistoryModal() {
+            // Populate Login History
+            loginHistoryContent.innerHTML = '';
+            appData.loginHistory.slice().reverse().forEach(log => {
+                const logEl = document.createElement('div');
+                logEl.className = 'text-sm text-slate-300 p-2 border-b border-slate-700';
+                logEl.textContent = `User '${log.user}' login pada ${formatTimestamp(log.timestamp)}`;
+                loginHistoryContent.appendChild(logEl);
+            });
+
+            // Populate Audit Log
+            auditLogContent.innerHTML = '';
+            appData.auditLog.slice().reverse().forEach(log => {
+                const logEl = document.createElement('div');
+                logEl.className = 'text-sm text-slate-300 p-2 border-b border-slate-700';
+                logEl.innerHTML = `<span class="font-semibold">${log.user}</span>: ${log.action} <span class="text-slate-400">(${log.details})</span> - <span class="text-xs">${formatTimestamp(log.timestamp)}</span>`;
+                auditLogContent.appendChild(logEl);
+            });
+
+            historyModal.classList.remove('hidden');
+        }
+
+        // --- EVENT LISTENERS ---
+        loginForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            const username = getEl('username').value;
+            const password = getEl('password').value;
+            
+            if (appData.users[username] && appData.users[username] === password) {
+                currentUser = username;
+                // Log the login
+                appData.loginHistory.push({ user: currentUser, timestamp: new Date().toISOString() });
+                
+                // Load user data
+                allRecords = appData.userData[currentUser].allRecords;
+                savedNames = appData.userData[currentUser].savedNames;
+
+                saveDataToStorage(); // Save login history
+                
+                loginScreen.classList.add('hidden');
+                appContainer.classList.remove('hidden');
+                currentUserDisplay.textContent = currentUser;
+                renderAll();
+            } else {
+                loginError.classList.remove('hidden');
+            }
+        });
+        
+        logoutBtn.addEventListener('click', () => {
+             saveDataToStorage(); // Save any last changes before logging out
+             currentUser = null;
+             allRecords = [];
+             savedNames = {};
+             loginForm.reset();
+             loginError.classList.add('hidden');
+             appContainer.classList.add('hidden');
+             loginScreen.classList.remove('hidden');
+        });
+
+        Object.keys(forms).forEach(type => {
+            forms[type].addEventListener('submit', (e) => handleFormSubmit(e, type));
+            forms[type].querySelector('[data-field="date"]').value = getTodayString();
+        });
+
+        allRecordsList.addEventListener('click', (e) => {
+            const button = e.target.closest('button');
+            if (!button) return;
+            const id = parseInt(button.dataset.id);
+            const record = allRecords.find(r => r.id === id);
+            if (!record) return;
+
+            if (button.classList.contains('delete-btn')) {
+                allRecords = allRecords.filter(item => item.id !== id);
+                logAction(currentUser, `Hapus ${record.type}`, `${record.name} - ${formatRupiah(record.amount)}`);
+                renderAll();
+            } else if (button.classList.contains('toggle-paid-btn')) {
+                record.isPaid = !record.isPaid;
+                const status = record.isPaid ? 'Lunas' : 'Belum Lunas';
+                logAction(currentUser, `Ubah Status ${record.type}`, `${record.name} menjadi ${status}`);
+                renderAll();
+            } else if (button.classList.contains('edit-btn')) {
+                openEditModal(id);
+            }
+        });
+
+        editForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            const record = allRecords.find(r => r.id === editingRecordId);
+            if (!record) return;
+
+            const oldDetails = `${record.name} - ${formatRupiah(record.amount)}`;
+            
+            const newName = getEl('edit-name').value.trim();
+            record.name = newName;
+            record.amount = parseFloat(getEl('edit-amount').value);
+            record.date = getEl('edit-date').value;
+            record.note = getEl('edit-note').value.trim();
+            const categorySelect = getEl('edit-category');
+            if (!categorySelect.parentElement.classList.contains('hidden')) {
+                record.category = categorySelect.value;
+            }
+            if (!savedNames[record.type].includes(newName)) {
+                savedNames[record.type].push(newName);
+            }
+
+            const newDetails = `${record.name} - ${formatRupiah(record.amount)}`;
+            logAction(currentUser, `Edit ${record.type}`, `"${oldDetails}" -> "${newDetails}"`);
+            
+            closeEditModal();
+            renderAll();
+        });
+
+        cancelEditBtn.addEventListener('click', closeEditModal);
+        filterControls.type.addEventListener('change', updateFilterCategoryOptions);
+        filterControls.applyBtn.addEventListener('click', applyFilters);
+        filterControls.resetBtn.addEventListener('click', resetFilters);
+        manageNamesBtn.addEventListener('click', openManageNamesModal);
+        closeManageNamesBtn.addEventListener('click', () => manageNamesModal.classList.add('hidden'));
+        manageNamesContent.addEventListener('click', (e) => {
+             if (e.target.closest('.edit-saved-name-btn')) {
+                handleEditSavedName(e);
+            }
+            if (e.target.closest('.delete-saved-name-btn')) {
+                handleDeleteSavedName(e);
+            }
+        });
+        
+        historyBtn.addEventListener('click', showHistoryModal);
+        closeHistoryBtn.addEventListener('click', () => historyModal.classList.add('hidden'));
+        tabLoginHistory.addEventListener('click', () => {
+            tabLoginHistory.className = 'text-indigo-400 border-indigo-400 whitespace-nowrap py-2 px-1 border-b-2 font-medium text-sm';
+            tabAuditLog.className = 'text-gray-400 hover:text-gray-200 hover:border-gray-500 whitespace-nowrap py-2 px-1 border-b-2 font-medium text-sm';
+            loginHistoryContent.classList.remove('hidden');
+            auditLogContent.classList.add('hidden');
+        });
+        tabAuditLog.addEventListener('click', () => {
+            tabAuditLog.className = 'text-indigo-400 border-indigo-400 whitespace-nowrap py-2 px-1 border-b-2 font-medium text-sm';
+            tabLoginHistory.className = 'text-gray-400 hover:text-gray-200 hover:border-gray-500 whitespace-nowrap py-2 px-1 border-b-2 font-medium text-sm';
+            auditLogContent.classList.remove('hidden');
+            loginHistoryContent.classList.add('hidden');
+        });
+
+        // --- INISIALISASI ---
+        loadDataFromStorage();
+    });
+    </script>
+</body>
+</html>
