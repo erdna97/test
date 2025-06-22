@@ -791,15 +791,11 @@
             
             // Terapkan filter ke daftar yang akan ditampilkan
             let displayRecords = recordsToProcess.filter(record => {
-                const recordDate = new Date(record.date);
-                recordDate.setMinutes(recordDate.getMinutes() + recordDate.getTimezoneOffset());
-
-                const start = startDate ? new Date(startDate) : null;
-                const end = endDate ? new Date(endDate) : null;
+                const recordDateStr = record.date; // e.g., "2025-05-01"
                 
-                if(typeFilter !== 'semua' && record.type !== typeFilter) return false;
-                if (start && recordDate < start) return false;
-                if (end && recordDate > end) return false;
+                if (typeFilter !== 'semua' && record.type !== typeFilter) return false;
+                if (startDate && recordDateStr < startDate) return false;
+                if (endDate && recordDateStr > endDate) return false;
                 if (nameFilter && !record.name.toLowerCase().includes(nameFilter)) return false;
 
                 if ( (record.type === 'expense' || record.type === 'income') && category !== 'semua' && record.category !== category ) {
