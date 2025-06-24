@@ -208,14 +208,8 @@
                         <button id="reset-filter-btn" class="w-full bg-slate-600 hover:bg-slate-700 font-semibold rounded-lg px-4 py-2 transition-colors">Reset</button>
                     </div>
                 </div>
-                <div id="filtered-summary-container" class="pt-4 hidden">
-                    <h4 class="text-lg font-semibold text-center text-indigo-300 mb-2">Ringkasan Hasil Filter</h4>
-                    <div class="grid grid-cols-2 md:grid-cols-4 gap-2 text-center p-4 bg-slate-800/50 rounded-lg">
-                        <div id="filtered-income-summary" class="hidden"><p class="text-slate-400 text-xs">Pendapatan</p><p id="filtered-income" class="text-lg font-semibold text-cyan-400">Rp 0</p></div>
-                        <div id="filtered-expenses-summary" class="hidden"><p class="text-slate-400 text-xs">Pengeluaran</p><p id="filtered-expenses" class="text-lg font-semibold text-red-400">Rp 0</p></div>
-                        <div id="filtered-savings-summary" class="hidden"><p class="text-slate-400 text-xs">Tabungan</p><p id="filtered-savings" class="text-lg font-semibold text-green-400">Rp 0</p></div>
-                        <div id="filtered-cashflow-summary" class="hidden"><p class="text-slate-400 text-xs">Arus Kas</p><p id="filtered-cashflow" class="text-lg font-bold text-white">Rp 0</p></div>
-                    </div>
+                <div id="filtered-summary-container" class="text-center pt-2 hidden">
+                    <p class="text-lg">Total Hasil Filter: <span id="filtered-total" class="font-bold text-indigo-400"></span></p>
                 </div>
             </div>
 
@@ -383,12 +377,7 @@
         const loginHistoryContent = getEl('login-history-content');
         const auditLogContent = getEl('audit-log-content');
         const filterControls = {
-            type: getEl('filter-type'), start: getEl('filter-start-date'), end: getEl('filter-end-date'), name: getEl('filter-name'), category: getEl('filter-category'), categoryLabel: getEl('filter-category-label'), applyBtn: getEl('apply-filter-btn'), resetBtn: getEl('reset-filter-btn'), summaryContainer: getEl('filtered-summary-container'), 
-            filteredIncome: getEl('filtered-income'), filteredIncomeSummary: getEl('filtered-income-summary'),
-            filteredExpenses: getEl('filtered-expenses'), filteredExpensesSummary: getEl('filtered-expenses-summary'),
-            filteredSavings: getEl('filtered-savings'), filteredSavingsSummary: getEl('filtered-savings-summary'),
-            filteredCashflow: getEl('filtered-cashflow'), filteredCashflowSummary: getEl('filtered-cashflow-summary'),
-            recordsTitle: getEl('records-title')
+            type: getEl('filter-type'), start: getEl('filter-start-date'), end: getEl('filter-end-date'), name: getEl('filter-name'), category: getEl('filter-category'), categoryLabel: getEl('filter-category-label'), applyBtn: getEl('apply-filter-btn'), resetBtn: getEl('reset-filter-btn'), summaryContainer: getEl('filtered-summary-container'), filteredTotal: getEl('filtered-total'), recordsTitle: getEl('records-title')
         };
         
         // --- SVG ICONS ---
@@ -580,7 +569,7 @@
             const totalSavings = allRecords.filter(r => r.type === 'savings').reduce((sum, item) => sum + item.amount, 0);
             const totalDebts = allRecords.filter(r => r.type === 'debt' && !r.isPaid).reduce((sum, item) => sum + item.amount, 0);
             const totalReceivables = allRecords.filter(r => r.type === 'receivable' && !r.isPaid).reduce((sum, item) => sum + item.amount, 0);
-            const remainingBalance = totalIncome - totalExpenses;
+            const remainingBalance = totalIncome - totalExpenses - totalSavings;
 
             summaryElements.totalIncome.textContent = formatRupiah(totalIncome);
             summaryElements.totalExpenses.textContent = formatRupiah(totalExpenses);
@@ -589,7 +578,6 @@
             summaryElements.totalReceivables.textContent = formatRupiah(totalReceivables);
             
             const balanceEl = summaryElements.remainingBalance;
-            balanceEl.textContent = formatRupiah(remainingBalance);
             balanceEl.className = 'text-xl font-bold ';
             if (remainingBalance > 0) balanceEl.classList.add('text-green-400');
             else if (remainingBalance === 0) balanceEl.classList.add('text-yellow-400');
@@ -787,15 +775,21 @@
             const category = filterControls.category.value;
             const nameFilter = filterControls.name.value.toLowerCase().trim();
 
-            let recordsToProcess = allRecords;
+            let filteredRecords = allRecords;
+
+            if (typeFilter !== 'semua') {
+                filteredRecords = filteredRecords.filter(r => r.type === typeFilter);
+            }
             
-            // Terapkan filter ke daftar yang akan ditampilkan
-            let displayRecords = recordsToProcess.filter(record => {
-                const recordDateStr = record.date; // e.g., "2025-05-01"
-                
-                if (typeFilter !== 'semua' && record.type !== typeFilter) return false;
-                if (startDate && recordDateStr < startDate) return false;
-                if (endDate && recordDateStr > endDate) return false;
+            filteredRecords = filteredRecords.filter(record => {
+                const recordDate = new Date(record.date);
+                recordDate.setMinutes(recordDate.getMinutes() + recordDate.getTimezoneOffset());
+
+                const start = startDate ? new Date(startDate) : null;
+                const end = endDate ? new Date(endDate) : null;
+
+                if (start && recordDate < start) return false;
+                if (end && recordDate > end) return false;
                 if (nameFilter && !record.name.toLowerCase().includes(nameFilter)) return false;
 
                 if ( (record.type === 'expense' || record.type === 'income') && category !== 'semua' && record.category !== category ) {
@@ -805,24 +799,10 @@
                 return true;
             });
             
-            renderRecords(displayRecords);
+            renderRecords(filteredRecords);
 
-            // Hitung dan tampilkan ringkasan filter
-            const filteredIncome = displayRecords.filter(r => r.type === 'income').reduce((sum, item) => sum + item.amount, 0);
-            const filteredExpenses = displayRecords.filter(r => r.type === 'expense').reduce((sum, item) => sum + item.amount, 0);
-            const filteredSavings = displayRecords.filter(r => r.type === 'savings').reduce((sum, item) => sum + item.amount, 0);
-            const filteredCashflow = filteredIncome - filteredExpenses;
-
-            filterControls.filteredIncome.textContent = formatRupiah(filteredIncome);
-            filterControls.filteredExpenses.textContent = formatRupiah(filteredExpenses);
-            filterControls.filteredSavings.textContent = formatRupiah(filteredSavings);
-            filterControls.filteredCashflow.textContent = formatRupiah(filteredCashflow);
-
-            filterControls.filteredIncomeSummary.classList.toggle('hidden', filteredIncome === 0);
-            filterControls.filteredExpensesSummary.classList.toggle('hidden', filteredExpenses === 0);
-            filterControls.filteredSavingsSummary.classList.toggle('hidden', filteredSavings === 0);
-            filterControls.filteredCashflowSummary.classList.toggle('hidden', filteredIncome === 0 && filteredExpenses === 0);
-
+            const filteredTotalAmount = filteredRecords.reduce((sum, item) => sum + item.amount, 0);
+            filterControls.filteredTotal.textContent = formatRupiah(filteredTotalAmount);
             filterControls.summaryContainer.classList.remove('hidden');
             filterControls.recordsTitle.textContent = "Hasil Filter Transaksi";
         }
@@ -868,12 +848,14 @@
             
             if (appData.users[username] && appData.users[username] === password) {
                 currentUser = username;
+                // Log the login
                 appData.loginHistory.push({ user: currentUser, timestamp: new Date().toISOString() });
                 
+                // Load user data
                 allRecords = appData.userData[currentUser].allRecords;
                 savedNames = appData.userData[currentUser].savedNames;
 
-                saveDataToStorage();
+                saveDataToStorage(); // Save login history
                 
                 loginScreen.classList.add('hidden');
                 appContainer.classList.remove('hidden');
@@ -885,7 +867,7 @@
         });
         
         logoutBtn.addEventListener('click', () => {
-             saveDataToStorage();
+             saveDataToStorage(); // Save any last changes before logging out
              currentUser = null;
              allRecords = [];
              savedNames = {};
