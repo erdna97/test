@@ -267,21 +267,47 @@
         </div>
     </div>
     <div id="history-modal" class="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center p-4 hidden">
-        <div class="bg-slate-800 rounded-xl shadow-2xl p-6 w-full max-w-3xl space-y-4">
-            <div class="flex justify-between items-center">
-                <h3 class="text-2xl font-bold text-white">Histori Aplikasi</h3>
+        <div class="bg-slate-800 rounded-xl shadow-2xl p-6 w-full max-w-3xl space-y-4 flex flex-col">
+            <div class="flex justify-between items-center flex-shrink-0">
+                <h3 class="text-2xl font-bold text-white">Histori Transaksi</h3>
                 <button id="close-history-btn" class="text-slate-400 hover:text-white text-3xl leading-none">&times;</button>
             </div>
-            <div id="history-content" class="max-h-[60vh] overflow-y-auto custom-scrollbar p-1"></div>
+            <div id="history-content-container" class="flex-grow overflow-y-auto custom-scrollbar p-1"></div>
         </div>
     </div>
-    <!-- Other modals (alert, confirm, prompt) would go here, fully formed -->
-
+     <div id="custom-alert-modal" class="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center p-4 hidden">
+        <div class="bg-slate-800 rounded-xl shadow-2xl p-6 w-full max-w-sm space-y-4 text-center">
+            <h3 id="custom-alert-title" class="text-xl font-bold text-white">Peringatan</h3>
+            <p id="custom-alert-message" class="text-slate-300"></p>
+            <button id="custom-alert-ok-btn" class="bg-cyan-500 hover:bg-cyan-600 font-semibold rounded-lg px-6 py-2 transition-colors">OK</button>
+        </div>
+    </div>
+    <div id="custom-confirm-modal" class="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center p-4 hidden">
+        <div class="bg-slate-800 rounded-xl shadow-2xl p-6 w-full max-w-sm space-y-4 text-center">
+            <h3 id="custom-confirm-title" class="text-xl font-bold text-white">Konfirmasi</h3>
+            <p id="custom-confirm-message" class="text-slate-300"></p>
+            <div class="flex justify-center gap-4 pt-4">
+                <button id="custom-confirm-cancel-btn" class="bg-slate-600 hover:bg-slate-700 font-semibold rounded-lg px-6 py-2 transition-colors">Batal</button>
+                <button id="custom-confirm-ok-btn" class="bg-red-500 hover:bg-red-600 font-semibold rounded-lg px-6 py-2 transition-colors">Ya</button>
+            </div>
+        </div>
+    </div>
+     <div id="custom-prompt-modal" class="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center p-4 hidden">
+        <div class="bg-slate-800 rounded-xl shadow-2xl p-6 w-full max-w-sm space-y-4">
+            <h3 id="custom-prompt-title" class="text-xl font-bold text-white">Input Diperlukan</h3>
+            <p id="custom-prompt-message" class="text-slate-300 mb-2"></p>
+            <input type="text" id="custom-prompt-input" class="w-full bg-slate-700 border border-slate-600 rounded-lg p-2">
+            <div class="flex justify-end gap-4 pt-4">
+                <button id="custom-prompt-cancel-btn" class="bg-slate-600 hover:bg-slate-700 font-semibold rounded-lg px-6 py-2 transition-colors">Batal</button>
+                <button id="custom-prompt-ok-btn" class="bg-cyan-500 hover:bg-cyan-600 font-semibold rounded-lg px-6 py-2 transition-colors">Simpan</button>
+            </div>
+        </div>
+    </div>
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, onAuthStateChanged, createUserWithEmailAndPassword, signInWithEmailAndPassword, GoogleAuthProvider, signInWithPopup, signOut } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, doc, setDoc, onSnapshot, collection, addDoc, updateDoc, deleteDoc, writeBatch } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getFirestore, doc, setDoc, onSnapshot, collection, addDoc, updateDoc, deleteDoc, writeBatch, query, where, getDocs } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
         
         // --- GLOBAL APP STATE ---
         let db, auth;
@@ -291,7 +317,7 @@
         let recordsUnsubscribe, namesUnsubscribe, historyUnsubscribe;
         let isRegisterMode = false;
 
-        // --- DOM ELEMENT SELECTION ---
+        // --- DOM ELEMENT SELECTION (Consolidated) ---
         const getEl = id => document.getElementById(id);
         const authScreen = getEl('auth-screen');
         const appContainer = getEl('app-container');
@@ -308,7 +334,36 @@
         const forms = {
             income: getEl('income-form'), expense: getEl('expense-form'), savings: getEl('savings-form'), debt: getEl('debt-form'), receivable: getEl('receivable-form'),
         };
-        // Add other necessary DOM elements here
+        const summaryElements = {
+            totalIncome: getEl('total-income'), totalExpenses: getEl('total-expenses'), totalSavings: getEl('total-savings'), totalDebts: getEl('total-debts'), totalReceivables: getEl('total-receivables'), remainingBalance: getEl('remaining-balance')
+        };
+        const filterControls = {
+            type: getEl('filter-type'), start: getEl('filter-start-date'), end: getEl('filter-end-date'), name: getEl('filter-name'), category: getEl('filter-category'), categoryLabel: getEl('filter-category-label'), applyBtn: getEl('apply-filter-btn'), resetBtn: getEl('reset-filter-btn'), summaryContainer: getEl('filtered-summary-container'), 
+            filteredIncome: getEl('filtered-income'), filteredIncomeSummary: getEl('filtered-income-summary'),
+            filteredExpenses: getEl('filtered-expenses'), filteredExpensesSummary: getEl('filtered-expenses-summary'),
+            filteredSavings: getEl('filtered-savings'), filteredSavingsSummary: getEl('filtered-savings-summary'),
+            filteredCashflow: getEl('filtered-cashflow'), filteredCashflowSummary: getEl('filtered-cashflow-summary'),
+            recordsTitle: getEl('records-title')
+        };
+        const editModal = getEl('edit-modal');
+        const editForm = getEl('edit-form');
+        const cancelEditBtn = getEl('cancel-edit-btn');
+        const manageNamesModal = getEl('manage-names-modal');
+        const manageNamesBtn = getEl('manage-names-btn');
+        const closeManageNamesBtn = getEl('close-manage-names-btn');
+        const manageNamesContent = getEl('manage-names-content');
+        const historyModal = getEl('history-modal');
+        const closeHistoryBtn = getEl('close-history-btn');
+        const historyBtn = getEl('history-btn');
+        const historyContentContainer = getEl('history-content-container');
+        
+        // --- SVG ICONS ---
+        const trashIconSVG = `<svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg"><path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd"></path></svg>`;
+        const checkIconSVG = `<svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"></path></svg>`;
+        const editIconSVG = `<svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg"><path d="M17.414 2.586a2 2 0 00-2.828 0L7 10.172V13h2.828l7.586-7.586a2 2 0 000-2.828z"></path><path fill-rule="evenodd" d="M2 6a2 2 0 012-2h4a1 1 0 010 2H4v10h10v-4a1 1 0 112 0v4a2 2 0 01-2 2H4a2 2 0 01-2-2V6z" clip-rule="evenodd"></path></svg>`;
+        const calendarIconSVG = `<svg class="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg"><path fill-rule="evenodd" d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z" clip-rule="evenodd"></path></svg>`;
+        const noteIconSVG = `<svg class="w-4 h-4 mr-1.5" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg"><path d="M4 3a2 2 0 100 4h12a2 2 0 100-4H4z"></path><path fill-rule="evenodd" d="M3 8h14v7a2 2 0 01-2 2H5a2 2 0 01-2-2V8zm5 3a1 1 0 011-1h2a1 1 0 110 2H9a1 1 0 01-1-1z" clip-rule="evenodd"></path></svg>`;
+
         
         // --- UTILITY & FORMATTING FUNCTIONS ---
         const formatRupiah = amount => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(amount);
@@ -321,16 +376,57 @@
                 day: 'numeric', month: 'short', year: 'numeric'
             });
         };
+        
+        // --- CUSTOM MODAL FUNCTIONS ---
+        const customAlert = { modal: getEl('custom-alert-modal'), title: getEl('custom-alert-title'), message: getEl('custom-alert-message'), okBtn: getEl('custom-alert-ok-btn')};
+        const customConfirm = { modal: getEl('custom-confirm-modal'), title: getEl('custom-confirm-title'), message: getEl('custom-confirm-message'), okBtn: getEl('custom-confirm-ok-btn'), cancelBtn: getEl('custom-confirm-cancel-btn') };
+        const customPrompt = { modal: getEl('custom-prompt-modal'), title: getEl('custom-prompt-title'), message: getEl('custom-prompt-message'), input: getEl('custom-prompt-input'), okBtn: getEl('custom-prompt-ok-btn'), cancelBtn: getEl('custom-prompt-cancel-btn') };
 
-        const createListItem = (item) => {
-            const { id, type, name, amount, category, date, note, isPaid = false } = item;
-            const itemDiv = document.createElement('div');
-            // This is a simplified version. The full function from the original code should be used.
-            itemDiv.className = 'bg-slate-700 p-3 rounded-lg flex justify-between items-center';
-            itemDiv.innerHTML = `<span>${name}: ${formatRupiah(amount)}</span>`;
-            // Add action buttons etc. here
-            return itemDiv;
+        const showAlert = (message, title = 'Peringatan') => {
+            customAlert.title.textContent = title;
+            customAlert.message.textContent = message;
+            customAlert.modal.classList.remove('hidden');
+            return new Promise(resolve => {
+                customAlert.okBtn.onclick = () => {
+                    customAlert.modal.classList.add('hidden');
+                    resolve();
+                };
+            });
         };
+
+        const showConfirm = (message, title = 'Konfirmasi') => {
+            customConfirm.title.textContent = title;
+            customConfirm.message.textContent = message;
+            customConfirm.modal.classList.remove('hidden');
+            return new Promise((resolve) => {
+                const handleOk = () => { customConfirm.modal.classList.add('hidden'); resolve(true); removeListeners(); };
+                const handleCancel = () => { customConfirm.modal.classList.add('hidden'); resolve(false); removeListeners(); };
+                const removeListeners = () => {
+                    customConfirm.okBtn.removeEventListener('click', handleOk);
+                    customConfirm.cancelBtn.removeEventListener('click', handleCancel);
+                };
+                customConfirm.okBtn.addEventListener('click', handleOk);
+                customConfirm.cancelBtn.addEventListener('click', handleCancel);
+            });
+        };
+        const showPrompt = (message, defaultValue = '', title = 'Input Diperlukan') => {
+            customPrompt.title.textContent = title;
+            customPrompt.message.textContent = message;
+            customPrompt.input.value = defaultValue;
+            customPrompt.modal.classList.remove('hidden');
+            customPrompt.input.focus();
+            return new Promise((resolve) => {
+                const handleOk = () => { customPrompt.modal.classList.add('hidden'); resolve(customPrompt.input.value); removeListeners(); };
+                const handleCancel = () => { customPrompt.modal.classList.add('hidden'); resolve(null); removeListeners(); };
+                const removeListeners = () => {
+                    customPrompt.okBtn.removeEventListener('click', handleOk);
+                    customPrompt.cancelBtn.removeEventListener('click', handleCancel);
+                };
+                customPrompt.okBtn.addEventListener('click', handleOk);
+                customPrompt.cancelBtn.addEventListener('click', handleCancel);
+            });
+        };
+
         
         // --- AUTHENTICATION UI LOGIC ---
         function setAuthMode(register) {
@@ -348,61 +444,476 @@
         }
 
         // --- CORE APP LOGIC ---
+        async function logAction(action, details, logType) {
+            if (!db || !appId) return;
+            const logUserId = auth.currentUser?.uid || 'system';
+            try {
+                 await addDoc(collection(db, `artifacts/${appId}/public/data/history`), {
+                    userId: logUserId,
+                    userEmail: auth.currentUser?.email || 'N/A',
+                    action,
+                    details,
+                    logType,
+                    timestamp: new Date().toISOString()
+                });
+            } catch (error) {
+                console.error("Error logging action:", error);
+            }
+        }
+
+        function createListItem(item) {
+            const { id, type, name, amount, category, date, note, isPaid = false } = item;
+            const itemDiv = document.createElement('div');
+            const typeConfig = {
+                income: { color: 'text-cyan-300', catBg: 'bg-cyan-500/20', catColor: 'text-cyan-400', label: 'Pendapatan' },
+                expense: { color: 'text-red-300', catBg: 'bg-red-500/20', catColor: 'text-red-400', label: 'Pengeluaran' },
+                savings: { color: 'text-green-300', label: 'Tabungan' },
+                debt: { color: 'text-yellow-300', label: 'Hutang' },
+                receivable: { color: 'text-blue-300', label: 'Piutang' }
+            };
+            const config = typeConfig[type];
+            const categoryHTML = category ? `<span class="text-xs ${config.catBg} ${config.catColor} px-2 py-1 rounded-full">${category}</span>` : `<span class="text-xs bg-slate-600 text-slate-300 px-2 py-1 rounded-full">${config.label}</span>`;
+            
+            const noteHTML = note ? `<div class="flex items-center text-xs text-slate-400 mt-1.5">${noteIconSVG} <span class="italic">${note}</span></div>` : '';
+
+            let actionButtons = `
+                <button data-id="${id}" class="edit-btn text-slate-400 hover:text-white transition-colors mr-2">${editIconSVG}</button>
+                <button data-id="${id}" class="delete-btn text-slate-400 hover:text-white transition-colors">${trashIconSVG}</button>`;
+                
+            if (type === 'debt' || type === 'receivable') {
+                actionButtons = `
+                    <button data-id="${id}" class="toggle-paid-btn text-slate-400 ${isPaid ? 'text-green-400' : 'hover:text-green-400'} transition-colors mr-2">
+                        ${checkIconSVG}
+                    </button>
+                    ${actionButtons}
+                `;
+            }
+
+            itemDiv.className = `bg-slate-700 p-3 rounded-lg flex justify-between items-center transition-opacity ${isPaid ? 'opacity-50' : ''}`;
+            itemDiv.innerHTML = `
+                <div class="flex flex-col flex-grow mr-2 overflow-hidden">
+                    <span class="font-medium text-sm text-white truncate ${isPaid ? 'line-through' : ''}" title="${name}">${name}</span>
+                    <div class="flex items-center text-xs text-slate-400 mt-1 flex-wrap">
+                        ${calendarIconSVG}
+                        <span>${formatDate(date)}</span>
+                        <span class="mx-2">|</span>
+                        ${categoryHTML}
+                    </div>
+                    ${noteHTML}
+                </div>
+                <div class="flex items-center flex-shrink-0">
+                    <span class="font-semibold ${config.color} mr-4 ${isPaid ? 'line-through' : ''}">${formatRupiah(amount)}</span>
+                    <div class="flex items-center">${actionButtons}</div>
+                </div>`;
+            return itemDiv;
+        }
+
+        function updateOverallSummary() {
+            const totalIncome = allRecords.filter(r => r.type === 'income').reduce((sum, item) => sum + item.amount, 0);
+            const totalExpenses = allRecords.filter(r => r.type === 'expense').reduce((sum, item) => sum + item.amount, 0);
+            const totalSavings = allRecords.filter(r => r.type === 'savings').reduce((sum, item) => sum + item.amount, 0);
+            const totalDebts = allRecords.filter(r => r.type === 'debt' && !r.isPaid).reduce((sum, item) => sum + item.amount, 0);
+            const totalReceivables = allRecords.filter(r => r.type === 'receivable' && !r.isPaid).reduce((sum, item) => sum + item.amount, 0);
+            const remainingBalance = totalIncome - totalExpenses;
+
+            summaryElements.totalIncome.textContent = formatRupiah(totalIncome);
+            summaryElements.totalExpenses.textContent = formatRupiah(totalExpenses);
+            summaryElements.totalSavings.textContent = formatRupiah(totalSavings);
+            summaryElements.totalDebts.textContent = formatRupiah(totalDebts);
+            summaryElements.totalReceivables.textContent = formatRupiah(totalReceivables);
+            
+            const balanceEl = summaryElements.remainingBalance;
+            balanceEl.textContent = formatRupiah(remainingBalance);
+            balanceEl.className = 'text-xl font-bold ';
+            if (remainingBalance >= 0) balanceEl.classList.add('text-green-400');
+            else balanceEl.classList.add('text-red-400');
+        }
+
+        function populateDatalists() {
+            Object.keys(savedNames).forEach(type => {
+                const datalist = document.getElementById(`${type}-names`);
+                if (datalist) {
+                    datalist.innerHTML = '';
+                    if (Array.isArray(savedNames[type])) {
+                        savedNames[type].forEach(name => {
+                            const option = document.createElement('option');
+                            option.value = name;
+                            datalist.appendChild(option);
+                        });
+                    }
+                }
+            });
+        }
+        
         function renderUI() {
-            // A central function to update all parts of the UI
-            // like rendering records, updating summaries, etc.
-            allRecordsList.innerHTML = '';
-            allRecords.sort((a,b) => new Date(b.date) - new Date(a.date)).forEach(rec => allRecordsList.appendChild(createListItem(rec)));
-            // updateOverallSummary(); // Ensure this function exists and is called
+            applyFilters();
+            updateOverallSummary();
+            populateDatalists();
         }
 
         function resetAppState() {
             allRecords = [];
-            savedNames = {};
+            savedNames = { income: [], expense: [], savings: [], debt: [], receivable: [] };
             allHistory = [];
             editingRecordId = null;
-            renderUI(); // Clear the UI
+            renderUI();
+        }
+
+        async function handleFormSubmit(event, type) {
+            event.preventDefault();
+            const form = event.target;
+            const name = form.querySelector('[data-field="name"]').value.trim();
+            const amount = parseFloat(form.querySelector('[data-field="amount"]').value);
+            const date = form.querySelector('[data-field="date"]').value || getTodayString();
+            const note = form.querySelector('[data-field="note"]').value.trim();
+            const categoryEl = form.querySelector('[data-field="category"]');
+
+            if (!name || !(amount > 0)) {
+                return showAlert("Nama dan Jumlah harus diisi dengan benar.");
+            }
+
+            const currentNamesForType = savedNames[type] || [];
+            if (!currentNamesForType.includes(name)) {
+                const newSavedNames = { ...savedNames, [type]: [...currentNamesForType, name] };
+                await setDoc(doc(db, `/artifacts/${appId}/users/${userId}/app_data/savedNames`), newSavedNames);
+            }
+
+            const newRecord = { type, name, amount, date, note, isPaid: false, createdAt: new Date().toISOString() };
+            if (categoryEl) newRecord.category = categoryEl.value;
+            
+            try {
+                await addDoc(collection(db, `/artifacts/${appId}/users/${userId}/records`), newRecord);
+                form.reset();
+                form.querySelector('[data-field="date"]').value = getTodayString();
+                logAction(`Tambah ${type}`, `${name} - ${formatRupiah(amount)}`, 'transaction');
+                filterControls.resetBtn.click();
+            } catch(error) {
+                console.error("Error adding document: ", error);
+                await showAlert("Gagal menyimpan transaksi ke database.");
+            }
         }
         
-        // --- EVENT LISTENERS ---
-        authSwitchBtn.addEventListener('click', () => setAuthMode(!isRegisterMode));
-        
-        authForm.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const email = getEl('auth-email').value;
-            const password = getEl('auth-password').value;
-            authError.classList.add('hidden');
-
-            try {
-                if (isRegisterMode) {
-                    await createUserWithEmailAndPassword(auth, email, password);
-                } else {
-                    await signInWithEmailAndPassword(auth, email, password);
-                }
-            } catch (error) {
-                showAuthError("Gagal. Periksa kembali email dan password Anda, atau coba daftar jika belum punya akun.");
-            }
-        });
-        
-        googleSigninBtn.addEventListener('click', async () => {
-            try {
-                await signInWithPopup(auth, new GoogleAuthProvider());
-            } catch (error) {
-                 showAuthError("Gagal masuk dengan Google. Silakan coba lagi.");
-            }
-        });
-
-        logoutBtn.addEventListener('click', () => signOut(auth));
-        
-        // Add other app event listeners (forms, buttons, etc.) here
-        Object.keys(forms).forEach(type => {
-            forms[type].addEventListener('submit', (e) => {
-                // handleFormSubmit(e, type) should be defined and used here
-                e.preventDefault();
-                console.log(`Form ${type} submitted.`);
+        function applyFilters() {
+            const typeFilter = filterControls.type.value;
+            const startDate = filterControls.start.value;
+            const endDate = filterControls.end.value;
+            const category = filterControls.category.value;
+            const nameFilter = filterControls.name.value.toLowerCase().trim();
+            
+            let displayRecords = allRecords.filter(record => {
+                if (typeFilter !== 'semua' && record.type !== typeFilter) return false;
+                if (startDate && record.date < startDate) return false;
+                if (endDate && record.date > endDate) return false;
+                if (nameFilter && !record.name.toLowerCase().includes(nameFilter)) return false;
+                if ((record.type === 'expense' || record.type === 'income') && category !== 'semua' && record.category !== category) return false;
+                return true;
             });
-        });
+            
+            allRecordsList.innerHTML = '';
+            if(displayRecords.length === 0) {
+                 allRecordsList.innerHTML = `<p class="text-slate-500 text-center italic">Tidak ada catatan yang cocok.</p>`;
+            } else {
+                 displayRecords.sort((a,b) => new Date(b.date) - new Date(a.date)).forEach(rec => allRecordsList.appendChild(createListItem(rec)));
+            }
+            
+            const filteredIncome = displayRecords.filter(r => r.type === 'income').reduce((sum, i) => sum + i.amount, 0);
+            const filteredExpenses = displayRecords.filter(r => r.type === 'expense').reduce((sum, i) => sum + i.amount, 0);
+            const filteredSavings = displayRecords.filter(r => r.type === 'savings').reduce((sum, i) => sum + i.amount, 0);
+            const filteredCashflow = filteredIncome - filteredExpenses;
 
+            filterControls.filteredIncome.textContent = formatRupiah(filteredIncome);
+            filterControls.filteredExpenses.textContent = formatRupiah(filteredExpenses);
+            filterControls.filteredSavings.textContent = formatRupiah(filteredSavings);
+            filterControls.filteredCashflow.textContent = formatRupiah(filteredCashflow);
+
+            filterControls.filteredIncomeSummary.classList.toggle('hidden', filteredIncome === 0);
+            filterControls.filteredExpensesSummary.classList.toggle('hidden', filteredExpenses === 0);
+            filterControls.filteredSavingsSummary.classList.toggle('hidden', filteredSavings === 0);
+            filterControls.filteredCashflowSummary.classList.toggle('hidden', filteredIncome === 0 && filteredExpenses === 0);
+            
+            const isFiltered = typeFilter !== 'semua' || startDate || endDate || nameFilter;
+            filterControls.summaryContainer.classList.toggle('hidden', !isFiltered);
+            filterControls.recordsTitle.textContent = isFiltered ? "Hasil Filter Transaksi" : "Semua Catatan Transaksi";
+        }
+        
+        function updateFilterCategoryOptions() {
+            const selectedType = filterControls.type.value;
+            const categorySelect = filterControls.category;
+            const categoryLabel = filterControls.categoryLabel;
+
+            categorySelect.innerHTML = '<option value="semua">Semua Kategori</option>';
+            
+            if (selectedType === 'expense' || selectedType === 'income') {
+                const sourceForm = forms[selectedType];
+                const sourceOptions = sourceForm.querySelector('select').options;
+                for (let option of sourceOptions) {
+                    categorySelect.add(new Option(option.text, option.value));
+                }
+                categorySelect.disabled = false;
+                categoryLabel.classList.remove('opacity-50');
+            } else {
+                categorySelect.disabled = true;
+                categoryLabel.classList.add('opacity-50');
+                categorySelect.value = 'semua';
+            }
+        }
+        
+        function openEditModal(id) {
+            const record = allRecords.find(r => r.id === id);
+            if (!record) return;
+
+            editingRecordId = id;
+            getEl('edit-name').value = record.name;
+            getEl('edit-amount').value = record.amount;
+            getEl('edit-date').value = record.date;
+            getEl('edit-note').value = record.note || '';
+            
+            const categoryContainer = getEl('edit-category-container');
+            const categorySelect = getEl('edit-category');
+
+            if (record.type === 'income' || record.type === 'expense') {
+                const sourceSelect = document.querySelector(`#${record.type}-form select`);
+                categorySelect.innerHTML = sourceSelect.innerHTML;
+                categorySelect.value = record.category;
+                categoryContainer.classList.remove('hidden');
+            } else {
+                categoryContainer.classList.add('hidden');
+            }
+            editModal.classList.remove('hidden');
+        }
+
+        function openManageNamesModal() {
+            manageNamesContent.innerHTML = '';
+            const typeLabels = { income: 'Pendapatan', expense: 'Pengeluaran', savings: 'Tabungan', debt: 'Hutang', receivable: 'Piutang' };
+            Object.keys(typeLabels).forEach(type => {
+                const container = document.createElement('div');
+                container.innerHTML = `<h4 class="text-lg font-bold text-slate-300 mb-2">${typeLabels[type]}</h4>`;
+                const list = document.createElement('ul');
+                list.className = 'space-y-2';
+                const namesForType = savedNames[type] || [];
+                if (namesForType.length === 0) {
+                     let li = document.createElement('li');
+                     li.className = 'text-slate-500 italic text-sm';
+                     li.textContent = 'Belum ada nama tersimpan.';
+                     list.appendChild(li);
+                } else {
+                    namesForType.forEach(name => {
+                        const li = document.createElement('li');
+                        li.className = 'flex items-center justify-between bg-slate-700 p-2 rounded-lg';
+                        li.innerHTML = `
+                            <span class="flex-grow truncate pr-2" title="${name}">${name}</span>
+                            <div class="flex items-center flex-shrink-0">
+                                <button data-type="${type}" data-name="${name}" class="edit-saved-name-btn text-slate-400 hover:text-white mr-2">${editIconSVG}</button>
+                                <button data-type="${type}" data-name="${name}" class="delete-saved-name-btn text-slate-400 hover:text-white">${trashIconSVG}</button>
+                            </div>
+                        `;
+                        list.appendChild(li);
+                    });
+                }
+                container.appendChild(list);
+                manageNamesContent.appendChild(container);
+            });
+            manageNamesModal.classList.remove('hidden');
+        }
+
+        function showHistoryModal() {
+            const renderHistory = (container, historyList) => {
+                container.innerHTML = '';
+                if (!historyList || historyList.length === 0) {
+                    container.innerHTML = '<p class="text-slate-500 text-center italic">Tidak ada histori untuk ditampilkan.</p>';
+                } else {
+                    const sortedHistory = [...historyList].sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+                    sortedHistory.forEach(log => {
+                        const logEl = document.createElement('div');
+                        logEl.className = 'bg-slate-700/50 p-3 rounded-lg mb-2 text-sm';
+                        logEl.innerHTML = `
+                           <div class="flex justify-between items-center">
+                             <span class="font-semibold text-indigo-300">${log.action}</span>
+                             <span class="text-xs text-slate-400">${formatTimestamp(log.timestamp)}</span>
+                           </div>
+                           <p class="text-slate-300 mt-1">${log.details}</p>
+                           <p class="text-xs text-slate-500 mt-1">User: ${log.userEmail || (log.userId ? log.userId.substring(0,8) : 'N/A')}</p>
+                        `;
+                        container.appendChild(logEl);
+                    });
+                }
+            };
+            
+            const transactionActivities = allHistory.filter(log => log.logType === 'transaction');
+            renderHistory(historyContentContainer, transactionActivities);
+            historyModal.classList.remove('hidden');
+        }
+
+        async function handleEditSavedName(e) {
+            const button = e.target.closest('button');
+            const type = button.dataset.type;
+            const oldName = button.dataset.name;
+            const newName = (await showPrompt(`Edit nama "${oldName}":`, oldName, 'Edit Nama Tersimpan'))?.trim();
+            if (!newName || newName === oldName) return;
+
+            const currentNames = savedNames[type] || [];
+
+            if (currentNames.includes(newName)) {
+                const confirmed = await showConfirm(`Nama "${newName}" sudah ada. Apakah Anda ingin menggabungkan semua transaksi dari "${oldName}" ke "${newName}"?`, 'Konfirmasi Gabung Nama');
+                if (confirmed) {
+                    const batch = writeBatch(db);
+                    const recordsToUpdateQuery = query(collection(db, `/artifacts/${appId}/users/${userId}/records`), where("type", "==", type), where("name", "==", oldName));
+                    const querySnapshot = await getDocs(recordsToUpdateQuery);
+                    querySnapshot.forEach((docToUpdate) => {
+                        batch.update(doc(db, `/artifacts/${appId}/users/${userId}/records`, docToUpdate.id), { name: newName });
+                    });
+                    
+                    const updatedNamesList = currentNames.filter(name => name !== oldName);
+                    const namesRef = doc(db, `/artifacts/${appId}/users/${userId}/app_data/savedNames`);
+                    batch.set(namesRef, { ...savedNames, [type]: updatedNamesList });
+                    
+                    await batch.commit();
+                    logAction('Gabung Nama Tersimpan', `"${oldName}" -> "${newName}"`, 'transaction');
+                }
+            } else {
+                const batch = writeBatch(db);
+                const nameIndex = currentNames.indexOf(oldName);
+                if (nameIndex > -1) {
+                    currentNames[nameIndex] = newName;
+                    
+                    const recordsToUpdateQuery = query(collection(db, `/artifacts/${appId}/users/${userId}/records`), where("type", "==", type), where("name", "==", oldName));
+                    const querySnapshot = await getDocs(recordsToUpdateQuery);
+                    querySnapshot.forEach((docToUpdate) => {
+                        batch.update(doc(db, `/artifacts/${appId}/users/${userId}/records`, docToUpdate.id), { name: newName });
+                    });
+
+                    const namesRef = doc(db, `/artifacts/${appId}/users/${userId}/app_data/savedNames`);
+                    batch.set(namesRef, { ...savedNames, [type]: currentNames });
+                    
+                    await batch.commit();
+                    logAction('Edit Nama Tersimpan', `"${oldName}" -> "${newName}"`, 'transaction');
+                }
+            }
+        }
+
+
+        async function handleDeleteSavedName(e) {
+             const button = e.target.closest('button');
+            const type = button.dataset.type;
+            const nameToDelete = button.dataset.name;
+            const isUsed = allRecords.some(record => record.type === type && record.name === nameToDelete);
+            if (isUsed) {
+                return showAlert(`Nama "${nameToDelete}" tidak bisa dihapus karena sedang digunakan dalam transaksi.`);
+            }
+            if (await showConfirm(`Anda yakin ingin menghapus nama "${nameToDelete}"?`, 'Konfirmasi Hapus')) {
+                 const newNamesList = (savedNames[type] || []).filter(name => name !== nameToDelete);
+                 await setDoc(doc(db, `/artifacts/${appId}/users/${userId}/app_data/savedNames`), { ...savedNames, [type]: newNamesList });
+                 logAction('Hapus Nama Tersimpan', `"${nameToDelete}"`, 'transaction');
+            }
+        }
+
+        // --- EVENT LISTENERS ---
+        function addAllEventListeners() {
+            authSwitchBtn.addEventListener('click', () => setAuthMode(!isRegisterMode));
+            authForm.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const email = getEl('auth-email').value;
+                const password = getEl('auth-password').value;
+                authError.classList.add('hidden');
+                try {
+                    if (isRegisterMode) {
+                        await createUserWithEmailAndPassword(auth, email, password);
+                    } else {
+                        await signInWithEmailAndPassword(auth, email, password);
+                    }
+                } catch (error) {
+                    showAuthError("Gagal. Periksa kembali email dan password Anda.");
+                }
+            });
+            googleSigninBtn.addEventListener('click', async () => {
+                try {
+                    await signInWithPopup(auth, new GoogleAuthProvider());
+                } catch (error) {
+                     showAuthError("Gagal masuk dengan Google. Silakan coba lagi.");
+                }
+            });
+            logoutBtn.addEventListener('click', () => signOut(auth));
+            
+            Object.keys(forms).forEach(type => {
+                forms[type].addEventListener('submit', (e) => handleFormSubmit(e, type));
+            });
+            
+            filterControls.applyBtn.addEventListener('click', applyFilters);
+            filterControls.resetBtn.addEventListener('click', () => {
+                 filterControls.type.value = 'semua';
+                 filterControls.start.value = '';
+                 filterControls.end.value = '';
+                 filterControls.name.value = '';
+                 updateFilterCategoryOptions();
+                 applyFilters();
+            });
+            filterControls.type.addEventListener('change', updateFilterCategoryOptions);
+            
+            allRecordsList.addEventListener('click', async (e) => {
+                const button = e.target.closest('button');
+                if (!button || !userId) return;
+                const id = button.dataset.id;
+                const record = allRecords.find(r => r.id === id);
+                if (!record) return;
+                
+                const recordRef = doc(db, `/artifacts/${appId}/users/${userId}/records`, id);
+
+                if (button.classList.contains('delete-btn')) {
+                    if(await showConfirm(`Yakin ingin menghapus transaksi "${record.name}"?`, 'Konfirmasi Hapus')){
+                        await deleteDoc(recordRef);
+                        logAction(`Hapus ${record.type}`, `${record.name} - ${formatRupiah(record.amount)}`, 'transaction');
+                    }
+                } else if (button.classList.contains('toggle-paid-btn')) {
+                    const newStatus = !record.isPaid;
+                    await updateDoc(recordRef, { isPaid: newStatus });
+                    const status = newStatus ? 'Lunas' : 'Belum Lunas';
+                    logAction(`Ubah Status ${record.type}`, `${record.name} menjadi ${status}`, 'transaction');
+                } else if (button.classList.contains('edit-btn')) {
+                    openEditModal(id);
+                }
+            });
+
+            editForm.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                if(!editingRecordId) return;
+                const record = allRecords.find(r => r.id === editingRecordId);
+                if(!record) return;
+
+                const updatedData = {
+                    name: getEl('edit-name').value.trim(),
+                    amount: parseFloat(getEl('edit-amount').value),
+                    date: getEl('edit-date').value,
+                    note: getEl('edit-note').value.trim()
+                };
+                if (!updatedData.name || !(updatedData.amount > 0)) return showAlert("Nama dan Jumlah harus diisi dengan benar.");
+                
+                const categorySelect = getEl('edit-category');
+                 if (!categorySelect.parentElement.classList.contains('hidden')) {
+                    updatedData.category = categorySelect.value;
+                }
+
+                const recordRef = doc(db, `/artifacts/${appId}/users/${userId}/records`, editingRecordId);
+                await updateDoc(recordRef, updatedData);
+                logAction(`Edit ${record.type}`, `"${record.name}" -> "${updatedData.name}"`, 'transaction');
+                editModal.classList.add('hidden');
+            });
+            cancelEditBtn.addEventListener('click', () => editModal.classList.add('hidden'));
+
+            manageNamesBtn.addEventListener('click', openManageNamesModal);
+            closeManageNamesBtn.addEventListener('click', () => manageNamesModal.classList.add('hidden'));
+            historyBtn.addEventListener('click', showHistoryModal);
+            closeHistoryBtn.addEventListener('click', () => historyModal.classList.add('hidden'));
+            
+            manageNamesContent.addEventListener('click', (e) => {
+                if (e.target.closest('.edit-saved-name-btn')) {
+                    handleEditSavedName(e);
+                }
+                if (e.target.closest('.delete-saved-name-btn')) {
+                    handleDeleteSavedName(e);
+                }
+            });
+        }
+        
         // --- FIREBASE INITIALIZATION & AUTH STATE MANAGEMENT ---
         function detachFirestoreListeners() {
             if (recordsUnsubscribe) recordsUnsubscribe();
@@ -429,15 +940,17 @@
                     savedNames = { income: [], expense: [], savings: [], debt: [], receivable: [] };
                     setDoc(doc(db, namesPath), savedNames).catch(e => console.error("Error creating savedNames doc:", e));
                 }
-                // populateDatalists();
+                populateDatalists();
             }, error => console.error("Saved names listener error:", error));
             
-            // Public history listener can be added here if needed
+            const historyPath = `/artifacts/${appId}/public/data/history`;
+            historyUnsubscribe = onSnapshot(query(collection(db, historyPath)), (snapshot) => {
+                allHistory = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            }, error => console.error("History listener error:", error));
         }
 
         async function initializeAppFlow() {
              try {
-                // **FIXED**: Hardcode the firebaseConfig provided by the user
                 const firebaseConfig = {
                     apiKey: "AIzaSyCUOfdSPWN4avQsox-0RyxGWwS-c2oRLRo",
                     authDomain: "test-f0749.firebaseapp.com",
@@ -447,21 +960,32 @@
                     appId: "1:777827353315:web:b2647a210011f374ec3bd6"
                 };
 
-                // Use projectId from the config as the appId for database paths
                 appId = firebaseConfig.projectId;
-
-                if (!appId) {
-                    throw new Error("projectId tidak ditemukan di dalam firebaseConfig.");
-                }
+                if (!appId) throw new Error("projectId tidak ditemukan di dalam firebaseConfig.");
                 
                 const app = initializeApp(firebaseConfig);
                 db = getFirestore(app);
                 auth = getAuth(app);
                 
+                addAllEventListeners();
+
                 onAuthStateChanged(auth, (user) => {
                     if (user) {
                         userId = user.uid;
                         currentUserDisplay.textContent = user.email || 'Pengguna Google';
+                        if (user.metadata.creationTime === user.metadata.lastSignInTime) {
+                             if(!user.email){
+                                logAction('User Register', `Google User: ${user.uid.substring(0,8)}...`, 'auth');
+                             } else {
+                                logAction('User Register', `Email: ${user.email}`, 'auth');
+                             }
+                        } else {
+                             if(!user.email){
+                                logAction('User Login', `Google User: ${user.uid.substring(0,8)}...`, 'auth');
+                             } else {
+                                logAction('User Login', `Email: ${user.email}`, 'auth');
+                             }
+                        }
                         attachFirestoreListeners();
                         authScreen.classList.add('hidden');
                         appContainer.classList.remove('hidden');
