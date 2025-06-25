@@ -22,6 +22,14 @@
         .custom-scrollbar::-webkit-scrollbar-thumb { background: #475569; border-radius: 4px; }
         .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #64748b; }
         .hidden { display: none; }
+        .fab-menu-item {
+            transition: all 0.3s ease;
+        }
+        /* Style untuk tombol kalkulator saat ditekan dari keyboard */
+        .key-pressed {
+            transform: scale(0.95);
+            filter: brightness(1.2);
+        }
     </style>
 </head>
 <body class="bg-slate-900 text-white flex items-center justify-center min-h-screen p-4">
@@ -29,7 +37,7 @@
     <!-- Layar Login / Pilih User -->
     <div id="login-screen" class="w-full max-w-sm">
         <div class="bg-slate-800 p-8 rounded-2xl shadow-2xl">
-            <h2 class="text-3xl font-bold text-center text-cyan-400 mb-6">Login Kolaborator</h2>
+            <h2 class="text-3xl font-bold text-center text-cyan-400 mb-6">AnD</h2>
             <form id="login-form" class="space-y-4">
                 <div>
                     <label for="username" class="block text-slate-300 mb-1">Username</label>
@@ -52,7 +60,7 @@
     <div id="app-container" class="w-full max-w-7xl hidden">
         <div class="bg-slate-800 rounded-2xl shadow-2xl p-6 md:p-8 space-y-8">
             <header class="text-center">
-                <h1 class="text-3xl md:text-4xl font-bold text-cyan-400">Kalkulator Anggaran Kolaboratif</h1>
+                <h1 class="text-3xl md:text-4xl font-bold text-cyan-400">AnD</h1>
                 <p class="text-slate-400 mt-2">Anda masuk sebagai: <span id="current-user-display" class="font-bold"></span></p>
                  <div class="mt-4 flex justify-center gap-4">
                     <button id="manage-names-btn" class="bg-gray-600 hover:bg-gray-700 font-semibold rounded-lg px-4 py-2 transition-colors text-sm">Kelola Nama</button>
@@ -137,6 +145,13 @@
                         <button id="reset-filter-btn" class="w-full bg-slate-600 hover:bg-slate-700 font-semibold rounded-lg px-4 py-2 transition-colors">Reset</button>
                     </div>
                 </div>
+                
+                <div id="filtered-summary-container" class="text-center pt-4 hidden">
+                    <p class="text-lg text-slate-300">Total Arus Kas Hasil Filter: 
+                        <span id="filtered-total" class="font-bold"></span>
+                    </p>
+                </div>
+
                 <div id="all-records-list" class="space-y-2 max-h-96 overflow-y-auto pr-2 custom-scrollbar">
                     <p class="text-center text-slate-400 py-8">Memuat data dari server...</p>
                 </div>
@@ -144,7 +159,29 @@
 
             <!-- Ringkasan Anggaran Keseluruhan -->
             <footer class="bg-slate-900/70 p-6 rounded-xl mt-6">
-                <h3 class="text-2xl font-bold text-center text-cyan-300 mb-4">Ringkasan Keuangan Total</h3>
+                <div class="flex flex-col sm:flex-row justify-between items-center mb-4 gap-4">
+                     <h3 class="text-2xl font-bold text-center sm:text-left text-cyan-300">Ringkasan Keuangan</h3>
+                     <div class="flex items-center gap-2">
+                        <select id="summary-month-filter" class="bg-slate-700 border border-slate-600 rounded-lg p-2 text-sm">
+                            <option value="-1">Semua Bulan</option>
+                            <option value="0">Januari</option>
+                            <option value="1">Februari</option>
+                            <option value="2">Maret</option>
+                            <option value="3">April</option>
+                            <option value="4">Mei</option>
+                            <option value="5">Juni</option>
+                            <option value="6">Juli</option>
+                            <option value="7">Agustus</option>
+                            <option value="8">September</option>
+                            <option value="9">Oktober</option>
+                            <option value="10">November</option>
+                            <option value="11">Desember</option>
+                        </select>
+                        <select id="summary-year-filter" class="bg-slate-700 border border-slate-600 rounded-lg p-2 text-sm">
+                           <!-- Opsi tahun akan ditambahkan oleh JS -->
+                        </select>
+                     </div>
+                </div>
                 <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 text-center">
                     <div><p class="text-slate-400 text-sm">Total Pendapatan</p><p id="total-income" class="text-xl font-semibold text-cyan-400">Rp 0</p></div>
                     <div><p class="text-slate-400 text-sm">Total Pengeluaran</p><p id="total-expenses" class="text-xl font-semibold text-red-400">Rp 0</p></div>
@@ -157,8 +194,17 @@
         </div>
     </div>
 
+    <div id="fab-container" class="fixed bottom-6 right-6 z-40">
+        <div id="fab-menu" class="flex flex-col items-center mb-2 space-y-2 hidden">
+            <button id="calculator-btn" class="fab-menu-item w-40 bg-indigo-600 text-white rounded-lg px-4 py-2 text-sm font-semibold shadow-lg hover:bg-indigo-700 transition-transform transform hover:scale-105">Kalkulator</button>
+        </div>
+        <button id="fab-main-btn" class="w-14 h-14 bg-cyan-500 rounded-full flex items-center justify-center text-white shadow-lg hover:bg-cyan-600 transition-transform transform hover:rotate-45">
+            <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path></svg>
+        </button>
+    </div>
+
     <!-- All Modals -->
-    <div id="edit-modal" class="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center p-4 hidden">
+    <div id="edit-modal" class="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center p-4 hidden z-50">
         <div class="bg-slate-800 rounded-xl shadow-2xl p-6 w-full max-w-md space-y-4">
             <h3 class="text-2xl font-bold text-white">Edit Catatan</h3>
             <form id="edit-form" class="space-y-4">
@@ -185,13 +231,13 @@
             </form>
         </div>
     </div>
-    <div id="manage-names-modal" class="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center p-4 hidden">
+    <div id="manage-names-modal" class="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center p-4 hidden z-50">
         <div class="bg-slate-800 rounded-xl shadow-2xl p-6 w-full max-w-3xl space-y-4">
             <div class="flex justify-between items-center"><h3 class="text-2xl font-bold text-white">Kelola Nama Transaksi</h3><button id="close-manage-names-btn" class="text-slate-400 hover:text-white text-3xl leading-none">&times;</button></div>
             <div id="manage-names-content" class="grid grid-cols-1 md:grid-cols-2 gap-6 max-h-[60vh] overflow-y-auto custom-scrollbar p-2"></div>
         </div>
     </div>
-    <div id="history-modal" class="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center p-4 hidden">
+    <div id="history-modal" class="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center p-4 hidden z-50">
         <div class="bg-slate-800 rounded-xl shadow-2xl p-6 w-full max-w-2xl space-y-4">
             <div class="flex justify-between items-center">
                 <h3 class="text-2xl font-bold text-white">Histori Perubahan</h3>
@@ -200,14 +246,51 @@
             <div id="audit-log-content" class="max-h-[60vh] overflow-y-auto custom-scrollbar p-1"></div>
         </div>
     </div>
-    <div id="custom-alert-modal" class="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center p-4 hidden">
+    <div id="calculator-modal" class="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center p-4 hidden z-50">
+        <div class="bg-slate-800 rounded-xl shadow-2xl p-6 w-full max-w-xs space-y-4">
+            <div class="flex justify-between items-center">
+                <h3 class="text-xl font-bold text-white">Kalkulator</h3>
+                <button id="close-calculator-btn" class="text-slate-400 hover:text-white text-3xl leading-none">&times;</button>
+            </div>
+            <div class="w-full bg-slate-900 text-white rounded-lg p-4 font-mono text-right">
+                <div id="calculator-history-display" class="h-6 text-xl text-slate-400 truncate">&nbsp;</div>
+                <div id="calculator-display" class="text-4xl">0</div>
+            </div>
+            <div id="calculator-keys" class="grid grid-cols-4 gap-2 text-xl font-semibold">
+                <button class="calculator-key bg-slate-600 hover:bg-slate-500 p-4 rounded-lg transition-transform" data-key="clear" data-action="clear">AC</button>
+                <button class="calculator-key bg-slate-600 hover:bg-slate-500 p-4 rounded-lg transition-transform" data-key="Backspace" data-action="backspace">
+                    <svg class="w-6 h-6 mx-auto pointer-events-none" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 9.75L14.25 12m0 0l2.25 2.25M14.25 12L12 14.25m-2.586-4.5H5.25A2.25 2.25 0 003 12v4.5A2.25 2.25 0 005.25 18.75h9.5A2.25 2.25 0 0017.25 16.5v-4.5A2.25 2.25 0 0014.75 9.75H9.414" />
+                    </svg>
+                </button>
+                <button class="calculator-key bg-slate-600 hover:bg-slate-500 p-4 rounded-lg transition-transform" data-action="sign">+/-</button>
+                <button class="calculator-key operator bg-orange-500 hover:bg-orange-600 p-4 rounded-lg transition-transform" data-key="/" data-action="divide">&divide;</button>
+                <button class="calculator-key bg-slate-700 hover:bg-slate-600 p-4 rounded-lg transition-transform" data-key="7">7</button>
+                <button class="calculator-key bg-slate-700 hover:bg-slate-600 p-4 rounded-lg transition-transform" data-key="8">8</button>
+                <button class="calculator-key bg-slate-700 hover:bg-slate-600 p-4 rounded-lg transition-transform" data-key="9">9</button>
+                <button class="calculator-key operator bg-orange-500 hover:bg-orange-600 p-4 rounded-lg transition-transform" data-key="*" data-action="multiply">&times;</button>
+                <button class="calculator-key bg-slate-700 hover:bg-slate-600 p-4 rounded-lg transition-transform" data-key="4">4</button>
+                <button class="calculator-key bg-slate-700 hover:bg-slate-600 p-4 rounded-lg transition-transform" data-key="5">5</button>
+                <button class="calculator-key bg-slate-700 hover:bg-slate-600 p-4 rounded-lg transition-transform" data-key="6">6</button>
+                <button class="calculator-key operator bg-orange-500 hover:bg-orange-600 p-4 rounded-lg transition-transform" data-key="-" data-action="subtract">-</button>
+                <button class="calculator-key bg-slate-700 hover:bg-slate-600 p-4 rounded-lg transition-transform" data-key="1">1</button>
+                <button class="calculator-key bg-slate-700 hover:bg-slate-600 p-4 rounded-lg transition-transform" data-key="2">2</button>
+                <button class="calculator-key bg-slate-700 hover:bg-slate-600 p-4 rounded-lg transition-transform" data-key="3">3</button>
+                <button class="calculator-key operator bg-orange-500 hover:bg-orange-600 p-4 rounded-lg transition-transform" data-key="+" data-action="add">+</button>
+                <button class="calculator-key col-span-2 bg-slate-700 hover:bg-slate-600 p-4 rounded-lg transition-transform" data-key="0">0</button>
+                <button class="calculator-key bg-slate-700 hover:bg-slate-600 p-4 rounded-lg transition-transform" data-key="." data-action="decimal">,</button>
+                <button class="calculator-key operator bg-orange-500 hover:bg-orange-600 p-4 rounded-lg transition-transform" data-key="=" data-action="calculate">=</button>
+            </div>
+        </div>
+    </div>
+    <div id="custom-alert-modal" class="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center p-4 hidden z-50">
         <div class="bg-slate-800 rounded-xl shadow-2xl p-6 w-full max-w-sm space-y-4 text-center">
             <h3 id="custom-alert-title" class="text-xl font-bold text-white">Peringatan</h3>
             <p id="custom-alert-message" class="text-slate-300"></p>
             <button id="custom-alert-ok-btn" class="bg-cyan-500 hover:bg-cyan-600 font-semibold rounded-lg px-6 py-2 transition-colors">OK</button>
         </div>
     </div>
-    <div id="custom-confirm-modal" class="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center p-4 hidden">
+    <div id="custom-confirm-modal" class="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center p-4 hidden z-50">
         <div class="bg-slate-800 rounded-xl shadow-2xl p-6 w-full max-w-sm space-y-4 text-center">
             <h3 id="custom-confirm-title" class="text-xl font-bold text-white">Konfirmasi</h3>
             <p id="custom-confirm-message" class="text-slate-300"></p>
@@ -217,7 +300,7 @@
             </div>
         </div>
     </div>
-    <div id="custom-prompt-modal" class="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center p-4 hidden">
+    <div id="custom-prompt-modal" class="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center p-4 hidden z-50">
         <div class="bg-slate-800 rounded-xl shadow-2xl p-6 w-full max-w-sm space-y-4">
             <h3 id="custom-prompt-title" class="text-xl font-bold text-white">Input Diperlukan</h3>
             <p id="custom-prompt-message" class="text-slate-300 mb-2"></p>
@@ -264,15 +347,38 @@
         const loginScreen = getEl('login-screen'), appContainer = getEl('app-container'), loginForm = getEl('login-form'),
               usernameSelect = getEl('username'), passwordInput = getEl('password'), loginError = getEl('login-error'),
               currentUserDisplay = getEl('current-user-display'), logoutBtn = getEl('logout-btn'), mainForm = getEl('main-form'),
-              allRecordsList = getEl('all-records-list'), summaryElements = { totalIncome: getEl('total-income'), totalExpenses: getEl('total-expenses'), totalSavings: getEl('total-savings'), totalDebts: getEl('total-debts'), totalReceivables: getEl('total-receivables'), remainingBalance: getEl('remaining-balance')},
+              allRecordsList = getEl('all-records-list'), 
+              summaryElements = { 
+                  totalIncome: getEl('total-income'), 
+                  totalExpenses: getEl('total-expenses'), 
+                  totalSavings: getEl('total-savings'), 
+                  totalDebts: getEl('total-debts'), 
+                  totalReceivables: getEl('total-receivables'), 
+                  remainingBalance: getEl('remaining-balance'),
+                  monthFilter: getEl('summary-month-filter'), 
+                  yearFilter: getEl('summary-year-filter')
+              },
               formTypeSelect = getEl('form-type'), formNameInput = getEl('form-name'), formAmountInput = getEl('form-amount'),
               formDateInput = getEl('form-date'), formNoteInput = getEl('form-note'), formCategoryContainer = getEl('form-category-container'),
               formCategorySelect = getEl('form-category'), formSubmitBtn = getEl('form-submit-btn'),
-              filterControls = { type: getEl('filter-type'), name: getEl('filter-name'), start: getEl('filter-start-date'), end: getEl('filter-end-date'), applyBtn: getEl('apply-filter-btn'), resetBtn: getEl('reset-filter-btn') },
+              filterControls = { 
+                  type: getEl('filter-type'), 
+                  name: getEl('filter-name'), 
+                  start: getEl('filter-start-date'), 
+                  end: getEl('filter-end-date'), 
+                  applyBtn: getEl('apply-filter-btn'), 
+                  resetBtn: getEl('reset-filter-btn'),
+                  summaryContainer: getEl('filtered-summary-container'), 
+                  filteredTotal: getEl('filtered-total') 
+              },
               historyBtn = getEl('history-btn'), historyModal = getEl('history-modal'), closeHistoryBtn = getEl('close-history-btn'),
               auditLogContent = getEl('audit-log-content'), manageNamesBtn = getEl('manage-names-btn'),
               manageNamesModal = getEl('manage-names-modal'), closeManageNamesBtn = getEl('close-manage-names-btn'), manageNamesContent = getEl('manage-names-content'),
-              editModal = getEl('edit-modal'), editForm = getEl('edit-form'), cancelEditBtn = getEl('cancel-edit-btn');
+              editModal = getEl('edit-modal'), editForm = getEl('edit-form'), cancelEditBtn = getEl('cancel-edit-btn'),
+              fabMainBtn = getEl('fab-main-btn'), fabMenu = getEl('fab-menu'), calculatorBtn = getEl('calculator-btn'),
+              calculatorModal = getEl('calculator-modal'), closeCalculatorBtn = getEl('close-calculator-btn'), calculatorDisplay = getEl('calculator-display'),
+              calculatorHistoryDisplay = getEl('calculator-history-display'),
+              calculatorKeys = getEl('calculator-keys');
               
         // --- SVG ICONS ---
         const trashIconSVG = `<svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg"><path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd"></path></svg>`;
@@ -355,8 +461,9 @@
         // --- MAIN RENDER FUNCTIONS ---
         function renderAll(records) {
             renderRecords(records);
-            updateOverallSummary(records);
             populateDatalist();
+            populateSummaryFilters(records);
+            handleSummaryFilterChange();
         }
 
         function renderRecords(recordsToRender) {
@@ -423,6 +530,7 @@
             summaryElements.totalReceivables.textContent = formatRupiah(totalReceivables);
             summaryElements.remainingBalance.textContent = formatRupiah(remainingBalance);
         }
+
         function updateFormUI() {
             const type = formTypeSelect.value;
             const config = {
@@ -449,8 +557,42 @@
             getEl('name-suggestions').innerHTML = names.map(name => `<option value="${name}"></option>`).join('');
         }
 
-        // --- FEATURE: KELOLA NAMA ---
-        // *** PERUBAHAN DI SINI: Mengubah UI menjadi Dropdown + Tombol Edit ***
+        // --- FEATURE: KELOLA NAMA & FILTER RINGKASAN ---
+        function populateSummaryFilters(records) {
+            const yearFilter = summaryElements.yearFilter;
+            const currentSelectedYear = yearFilter.value;
+
+            const years = [...new Set(records.map(r => r.date.toDate().getFullYear()))];
+            yearFilter.innerHTML = '<option value="-1">Semua Tahun</option>';
+            years.sort((a, b) => b - a).forEach(year => {
+                const option = document.createElement('option');
+                option.value = year;
+                option.textContent = year;
+                yearFilter.appendChild(option);
+            });
+
+            if (years.includes(parseInt(currentSelectedYear))) {
+                yearFilter.value = currentSelectedYear;
+            }
+        }
+
+        function handleSummaryFilterChange() {
+            const selectedMonth = parseInt(summaryElements.monthFilter.value);
+            const selectedYear = parseInt(summaryElements.yearFilter.value);
+
+            let recordsForSummary = allRecords;
+
+            if (selectedYear !== -1) {
+                recordsForSummary = recordsForSummary.filter(r => r.date.toDate().getFullYear() === selectedYear);
+            }
+            if (selectedMonth !== -1) {
+                recordsForSummary = recordsForSummary.filter(r => r.date.toDate().getMonth() === selectedMonth);
+            }
+            
+            updateOverallSummary(recordsForSummary);
+        }
+
+
         function openManageNamesModal() {
             const namesByType = allRecords.reduce((acc, curr) => {
                 if (!acc[curr.type]) acc[curr.type] = new Set();
@@ -498,8 +640,7 @@
 
             manageNamesModal.classList.remove('hidden');
         }
-
-        // *** PERUBAHAN DI SINI: Menyesuaikan handler untuk mengambil nilai dari dropdown ***
+        
         async function handleEditSavedName(e) {
             const button = e.target.closest('button');
             const type = button.dataset.type;
@@ -541,6 +682,164 @@
                 await showAlert("Terjadi kesalahan saat mengubah nama.", "Error");
             }
         }
+
+        // --- CALCULATOR LOGIC (REWRITTEN) ---
+        const calculator = {
+            displayValue: '0',
+            firstOperand: null,
+            waitingForSecondOperand: false,
+            operator: null,
+        };
+        
+        function formatNumberString(str) {
+            const [integerPart, decimalPart] = str.split('.');
+            const unformattedInteger = integerPart.replace(/,/g, '');
+            const formattedInteger = new Intl.NumberFormat('id-ID').format(unformattedInteger);
+            return decimalPart != null ? `${formattedInteger},${decimalPart}` : formattedInteger;
+        }
+
+        function updateCalculatorDisplay() {
+            calculatorDisplay.textContent = formatNumberString(calculator.displayValue.replace('.', ','));
+        }
+        
+        function inputDigit(digit) {
+            const { displayValue, waitingForSecondOperand } = calculator;
+            if (waitingForSecondOperand) {
+                calculator.displayValue = digit;
+                calculator.waitingForSecondOperand = false;
+            } else {
+                calculator.displayValue = displayValue === '0' ? digit : displayValue + digit;
+            }
+        }
+        
+        function inputDecimal() {
+            if (calculator.waitingForSecondOperand) {
+                calculator.displayValue = '0.';
+                calculator.waitingForSecondOperand = false;
+                return;
+            }
+            if (!calculator.displayValue.includes('.')) {
+                calculator.displayValue += '.';
+            }
+        }
+
+        function handleOperator(nextOperator) {
+            const { firstOperand, displayValue, operator } = calculator;
+            const inputValue = parseFloat(displayValue.replace(/\./g, '').replace(',', '.'));
+
+            if (operator && calculator.waitingForSecondOperand) {
+                calculator.operator = nextOperator;
+                calculatorHistoryDisplay.textContent = `${formatNumberString(String(firstOperand))} ${nextOperator}`;
+                return;
+            }
+
+            if (firstOperand === null && !isNaN(inputValue)) {
+                calculator.firstOperand = inputValue;
+            } else if (operator) {
+                const result = performCalculation(firstOperand, inputValue, operator);
+                calculator.displayValue = String(result);
+                calculator.firstOperand = result;
+            }
+
+            calculator.waitingForSecondOperand = true;
+            calculator.operator = nextOperator;
+            calculatorHistoryDisplay.textContent = `${formatNumberString(calculator.displayValue)} ${nextOperator}`;
+        }
+        
+        function performCalculation(first, second, op) {
+            if (op === '+') return first + second;
+            if (op === '−') return first - second;
+            if (op === '×') return first * second;
+            if (op === '÷') return first / second;
+            return second;
+        }
+
+        function resetCalculator() {
+            calculator.displayValue = '0';
+            calculator.firstOperand = null;
+            calculator.waitingForSecondOperand = false;
+            calculator.operator = null;
+            calculatorHistoryDisplay.innerHTML = '&nbsp;';
+            updateCalculatorDisplay();
+        }
+        
+        function inputBackspace() {
+            if (calculator.waitingForSecondOperand) return;
+            calculator.displayValue = calculator.displayValue.length > 1 ? calculator.displayValue.slice(0, -1) : '0';
+        }
+
+        function inputSign() {
+             if (calculator.displayValue === '0') return;
+             calculator.displayValue = calculator.displayValue.startsWith('-')
+                ? calculator.displayValue.slice(1)
+                : `-${calculator.displayValue}`;
+        }
+        
+        function handleCalculatorAction(action, keyContent) {
+            switch(action) {
+                case 'add': handleOperator('+'); break;
+                case 'subtract': handleOperator('−'); break;
+                case 'multiply': handleOperator('×'); break;
+                case 'divide': handleOperator('÷'); break;
+                case 'decimal': inputDecimal(); break;
+                case 'clear': resetCalculator(); break;
+                case 'backspace': inputBackspace(); break;
+                case 'sign': inputSign(); break;
+                case 'calculate':
+                    if (calculator.operator && !calculator.waitingForSecondOperand) {
+                        const { firstOperand, displayValue, operator } = calculator;
+                        const secondOperand = parseFloat(displayValue);
+                        const result = performCalculation(firstOperand, secondOperand, operator);
+
+                        calculatorHistoryDisplay.textContent = `${formatNumberString(String(firstOperand))} ${operator} ${formatNumberString(displayValue)} =`;
+                        calculator.displayValue = String(result);
+                        calculator.operator = null;
+                        calculator.firstOperand = null; 
+                        calculator.waitingForSecondOperand = true;
+                    }
+                    break;
+                default:
+                    if (/\d/.test(keyContent)) {
+                        inputDigit(keyContent);
+                    }
+                    break;
+            }
+            updateCalculatorDisplay();
+        }
+
+        function handleKeyPress(e) {
+            const key = e.key;
+            let targetButton;
+            if (key >= '0' && key <= '9') {
+                targetButton = calculatorKeys.querySelector(`[data-key="${key}"]`);
+            } else if (key === '.' || key === ',') {
+                targetButton = calculatorKeys.querySelector('[data-action="decimal"]');
+            } else if (key === '+') {
+                targetButton = calculatorKeys.querySelector('[data-action="add"]');
+            } else if (key === '-') {
+                targetButton = calculatorKeys.querySelector('[data-action="subtract"]');
+            } else if (key === '*') {
+                targetButton = calculatorKeys.querySelector('[data-action="multiply"]');
+            } else if (key === '/') {
+                targetButton = calculatorKeys.querySelector('[data-action="divide"]');
+            } else if (key === 'Enter' || key === '=') {
+                targetButton = calculatorKeys.querySelector('[data-action="calculate"]');
+            } else if (key.toLowerCase() === 'c' || key === 'Escape') {
+                targetButton = calculatorKeys.querySelector('[data-action="clear"]');
+            } else if (key === 'Backspace') {
+                targetButton = calculatorKeys.querySelector('[data-action="backspace"]');
+            } else {
+                return;
+            }
+            
+            e.preventDefault();
+            if (targetButton) {
+                targetButton.click();
+                targetButton.classList.add('key-pressed');
+                setTimeout(() => { targetButton.classList.remove('key-pressed'); }, 100);
+            }
+        }
+
 
         // --- EVENT LISTENERS ---
         loginForm.addEventListener('submit', (e) => {
@@ -668,13 +967,33 @@
              if (endDate) filteredRecords = filteredRecords.filter(r => r.date.toMillis() <= endDate);
              
              renderRecords(filteredRecords);
+
+             const isActiveFilter = typeFilter !== 'semua' || nameFilter || startDate || endDate;
+             if (isActiveFilter) {
+                 let netFlow = 0;
+                 filteredRecords.forEach(record => {
+                     if (record.type === 'income') {
+                         netFlow += record.amount;
+                     } else { 
+                         netFlow -= record.amount;
+                     }
+                 });
+                 
+                 filterControls.filteredTotal.textContent = formatRupiah(netFlow);
+                 filterControls.filteredTotal.className = `font-bold ${netFlow >= 0 ? 'text-cyan-400' : 'text-red-400'}`;
+                 filterControls.summaryContainer.classList.remove('hidden');
+             } else {
+                 filterControls.summaryContainer.classList.add('hidden');
+             }
         });
+        
         filterControls.resetBtn.addEventListener('click', () => {
             filterControls.type.value = 'semua';
             filterControls.name.value = '';
             filterControls.start.value = '';
             filterControls.end.value = '';
             renderRecords(allRecords);
+            filterControls.summaryContainer.classList.add('hidden');
         });
 
         manageNamesBtn.addEventListener('click', openManageNamesModal);
@@ -688,6 +1007,43 @@
         });
         closeHistoryBtn.addEventListener('click', () => historyModal.classList.add('hidden'));
 
+        summaryElements.monthFilter.addEventListener('change', handleSummaryFilterChange);
+        summaryElements.yearFilter.addEventListener('change', handleSummaryFilterChange);
+        
+        // FAB & Calculator Listeners
+        fabMainBtn.addEventListener('click', () => {
+            fabMenu.classList.toggle('hidden');
+            fabMainBtn.classList.toggle('rotate-45');
+        });
+
+        calculatorBtn.addEventListener('click', () => {
+            calculatorModal.classList.remove('hidden');
+            document.addEventListener('keydown', handleKeyPress); 
+            fabMenu.classList.add('hidden');
+            fabMainBtn.classList.remove('rotate-45');
+        });
+
+        const hideCalculator = () => {
+            calculatorModal.classList.add('hidden');
+            document.removeEventListener('keydown', handleKeyPress);
+        }
+
+        closeCalculatorBtn.addEventListener('click', () => {
+            hideCalculator();
+            resetCalculator();
+        });
+        
+        calculatorModal.addEventListener('click', (e) => {
+            if (e.target === calculatorModal) {
+                hideCalculator(); // Hanya sembunyikan, jangan reset
+            }
+        });
+        
+        calculatorKeys.addEventListener('click', (e) => {
+             const key = e.target;
+            if (!key.matches('button')) return;
+            handleCalculatorAction(key.dataset.action, key.textContent);
+        });
 
         // --- REAL-TIME LISTENER ---
         onSnapshot(query(transactionsCol, orderBy("date", "desc")), (snapshot) => {
@@ -719,8 +1075,17 @@
         } else {
             sessionStorage.removeItem('budgetUser');
         }
+
+        const now = new Date();
+        summaryElements.monthFilter.value = now.getMonth();
+        // Cek dulu apakah ada tahun di filter sebelum set value
+        if(summaryElements.yearFilter.options.length > 1){
+            summaryElements.yearFilter.value = now.getFullYear();
+        }
+        
         formDateInput.value = getTodayString();
         updateFormUI();
+        updateCalculatorDisplay();
     </script>
 </body>
 </html>
