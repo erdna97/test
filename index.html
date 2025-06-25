@@ -186,7 +186,7 @@
         </div>
     </div>
     <div id="manage-names-modal" class="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center p-4 hidden">
-        <div class="bg-slate-800 rounded-xl shadow-2xl p-6 w-full max-w-2xl space-y-4">
+        <div class="bg-slate-800 rounded-xl shadow-2xl p-6 w-full max-w-3xl space-y-4">
             <div class="flex justify-between items-center"><h3 class="text-2xl font-bold text-white">Kelola Nama Transaksi</h3><button id="close-manage-names-btn" class="text-slate-400 hover:text-white text-3xl leading-none">&times;</button></div>
             <div id="manage-names-content" class="grid grid-cols-1 md:grid-cols-2 gap-6 max-h-[60vh] overflow-y-auto custom-scrollbar p-2"></div>
         </div>
@@ -450,6 +450,7 @@
         }
 
         // --- FEATURE: KELOLA NAMA ---
+        // *** PERUBAHAN DI SINI: Mengubah UI menjadi Dropdown + Tombol Edit ***
         function openManageNamesModal() {
             const namesByType = allRecords.reduce((acc, curr) => {
                 if (!acc[curr.type]) acc[curr.type] = new Set();
@@ -461,27 +462,54 @@
             const typeLabels = { income: 'Pendapatan', expense: 'Pengeluaran', savings: 'Tabungan', debt: 'Hutang', receivable: 'Piutang' };
 
             Object.entries(namesByType).forEach(([type, names]) => {
+                if (names.size === 0) return;
+
                 const container = document.createElement('div');
-                container.innerHTML = `<h4 class="text-lg font-bold text-slate-300 mb-2 border-b border-slate-600 pb-1">${typeLabels[type]}</h4>`;
-                const list = document.createElement('ul');
-                list.className = 'space-y-2';
+                container.className = 'space-y-2';
+
+                const title = document.createElement('h4');
+                title.className = 'text-lg font-bold text-slate-300 border-b border-slate-600 pb-1';
+                title.textContent = typeLabels[type];
+                container.appendChild(title);
+
+                const controlWrapper = document.createElement('div');
+                controlWrapper.className = 'flex items-center gap-2';
+                
+                const select = document.createElement('select');
+                select.className = 'w-full bg-slate-700 border border-slate-600 rounded-lg p-2 manage-name-select';
+                
                 [...names].sort().forEach(name => {
-                    const li = document.createElement('li');
-                    li.className = 'flex items-center justify-between bg-slate-700 p-2 rounded-lg';
-                    li.innerHTML = `<span>${name}</span><button data-type="${type}" data-name="${name}" class="edit-saved-name-btn text-slate-400 hover:text-white transition-colors p-1 rounded-full"><title>Edit Nama</title>${editIconSVG}</button>`;
-                    list.appendChild(li);
+                    const option = document.createElement('option');
+                    option.value = name;
+                    option.textContent = name;
+                    select.appendChild(option);
                 });
-                container.appendChild(list);
+                controlWrapper.appendChild(select);
+
+                const editButton = document.createElement('button');
+                editButton.className = 'edit-saved-name-btn flex-shrink-0 bg-slate-600 hover:bg-slate-500 text-white font-semibold rounded-lg p-2 transition-colors';
+                editButton.innerHTML = editIconSVG;
+                editButton.dataset.type = type;
+                controlWrapper.appendChild(editButton);
+
+                container.appendChild(controlWrapper);
                 manageNamesContent.appendChild(container);
             });
 
             manageNamesModal.classList.remove('hidden');
         }
 
+        // *** PERUBAHAN DI SINI: Menyesuaikan handler untuk mengambil nilai dari dropdown ***
         async function handleEditSavedName(e) {
             const button = e.target.closest('button');
             const type = button.dataset.type;
-            const oldName = button.dataset.name;
+            const selectElement = button.previousElementSibling;
+            const oldName = selectElement.value;
+
+            if (!oldName) {
+                await showAlert("Tidak ada nama yang dipilih untuk diedit.");
+                return;
+            }
 
             const newNameRaw = await showPrompt(`Edit nama "${oldName}" menjadi:`, oldName, 'Edit Nama Tersimpan');
             if (!newNameRaw || newNameRaw.trim() === '' || newNameRaw.trim() === oldName) return;
@@ -507,7 +535,7 @@
 
                 await logAction('Kelola Nama', `Mengubah "${oldName}" menjadi "${newName}" (${querySnapshot.size} transaksi)`);
                 await showAlert('Nama transaksi berhasil diperbarui untuk semua entri terkait.', 'Sukses');
-                openManageNamesModal();
+                openManageNamesModal(); // Refresh modal content
             } catch (error) {
                 console.error("Gagal mengubah nama transaksi:", error);
                 await showAlert("Terjadi kesalahan saat mengubah nama.", "Error");
@@ -662,12 +690,9 @@
 
 
         // --- REAL-TIME LISTENER ---
-        // *** PERUBAHAN DI SINI: Mengurutkan berdasarkan 'date' bukan 'timestamp' ***
         onSnapshot(query(transactionsCol, orderBy("date", "desc")), (snapshot) => {
             allRecords = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
             renderAll(allRecords);
-            // Optionally reset filters when new data comes in
-            // filterControls.resetBtn.click();
         });
         
         onSnapshot(query(auditLogCol, orderBy("timestamp", "desc")), (snapshot) => {
