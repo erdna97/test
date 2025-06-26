@@ -1008,12 +1008,18 @@
                  filteredRecords.forEach(record => {
                     switch (record.type) {
                         case 'income':
-                        case 'debt': // Hutang (uang masuk)
                             netFlow += record.amount;
                             break;
                         case 'expense':
                         case 'savings':
-                        case 'receivable': // Piutang (uang keluar)
+                            netFlow -= record.amount;
+                            break;
+                        case 'debt':
+                            // Saat Anda membuat hutang, Anda menerima uang. Arus kas masuk.
+                            netFlow += record.amount;
+                            break;
+                        case 'receivable':
+                             // Saat Anda membuat piutang, Anda memberi uang. Arus kas keluar.
                             netFlow -= record.amount;
                             break;
                     }
@@ -1138,7 +1144,11 @@
             });
         });
         
-        const synth = new Tone.Synth().toDestination();
+        // *** PERBAIKAN DI SINI: Logika notifikasi suara dan visual yang disempurnakan ***
+        const notificationSynth = new Tone.Synth({
+            oscillator: { type: 'sine' },
+            envelope: { attack: 0.005, decay: 0.1, sustain: 0.3, release: 0.5 }
+        }).toDestination();
 
         onSnapshot(query(chatCol, orderBy("timestamp")), (snapshot) => {
             snapshot.docChanges().forEach(change => {
@@ -1146,7 +1156,12 @@
                     const msg = change.doc.data();
                     
                     if (!isInitialChatLoad && msg.user !== currentUser) {
-                        synth.triggerAttackRelease("C5", "8n");
+                         // Mainkan suara "Tri-tone"
+                        const now = Tone.now();
+                        notificationSynth.triggerAttackRelease("G5", "16n", now);
+                        notificationSynth.triggerAttackRelease("A5", "16n", now + 0.12);
+                        notificationSynth.triggerAttackRelease("C6", "16n", now + 0.24);
+
                         if (!isChatOpen) { 
                              chatNotificationDot.classList.remove('hidden');
                         }
@@ -1180,7 +1195,9 @@
                 }
             });
             isInitialChatLoad = false;
-            chatMessagesArea.scrollTop = chatMessagesArea.scrollHeight;
+            if (chatMessagesArea.children.length > 0) {
+                 chatMessagesArea.scrollTop = chatMessagesArea.scrollHeight;
+            }
         });
 
         // --- INISIALISASI ---
