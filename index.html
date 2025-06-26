@@ -949,6 +949,7 @@
                     await updateDoc(recordRef, { isPaid: newPaidStatus });
                     const status = newPaidStatus ? 'Lunas' : 'Belum Lunas';
                     await logAction(`Ubah Status ${record.type}`, `${record.name} menjadi ${status}`);
+                    // *** PERBAIKAN DI SINI: Panggil ulang fungsi filter secara otomatis ***
                     filterControls.applyBtn.click();
                  } catch (error) { console.error("Error update status:", error); }
             } else if (button.classList.contains('edit-btn')) {
@@ -1007,17 +1008,13 @@
                  filteredRecords.forEach(record => {
                     switch (record.type) {
                         case 'income':
+                        case 'debt': // Hutang (uang masuk)
                             netFlow += record.amount;
                             break;
                         case 'expense':
                         case 'savings':
+                        case 'receivable': // Piutang (uang keluar)
                             netFlow -= record.amount;
-                            break;
-                        case 'debt':
-                             if (!record.isPaid) { netFlow += record.amount; }
-                            break;
-                        case 'receivable':
-                             if (!record.isPaid) { netFlow -= record.amount; }
                             break;
                     }
                  });
@@ -1150,7 +1147,7 @@
                     
                     if (!isInitialChatLoad && msg.user !== currentUser) {
                         synth.triggerAttackRelease("C5", "8n");
-                        if (!isChatOpen) { // *** PERBAIKAN DI SINI ***
+                        if (!isChatOpen) { 
                              chatNotificationDot.classList.remove('hidden');
                         }
                     }
