@@ -253,14 +253,14 @@
         </div>
     </div>
     <div id="calculator-modal" class="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center p-4 hidden z-50">
-        <div class="bg-slate-800 rounded-xl shadow-2xl p-6 w-full max-w-xs space-y-4">
+        <div class="bg-slate-800 rounded-xl shadow-2xl p-6 w-full max-w-md space-y-4">
             <div class="flex justify-between items-center">
                 <h3 class="text-xl font-bold text-white">Kalkulator</h3>
                 <button id="close-calculator-btn" class="text-slate-400 hover:text-white text-3xl leading-none">&times;</button>
             </div>
             <div class="w-full bg-slate-900 text-white rounded-lg p-4 font-mono text-right">
                 <div id="calculator-history-display" class="h-6 text-xl text-slate-400 truncate">&nbsp;</div>
-                <div id="calculator-display" class="text-4xl">0</div>
+                <div id="calculator-display" class="text-4xl break-all">0</div>
             </div>
             <div id="calculator-keys" class="grid grid-cols-4 gap-2 text-xl font-semibold">
                 <button class="calculator-key bg-slate-600 hover:bg-slate-500 p-4 rounded-lg transition-transform" data-key="clear" data-action="clear">AC</button>
@@ -296,8 +296,7 @@
                 <button id="close-chat-btn" class="text-slate-400 hover:text-white text-3xl leading-none">&times;</button>
             </div>
             <div id="chat-messages-area" class="flex-grow p-4 space-y-4 overflow-y-auto custom-scrollbar">
-                <!-- Pesan chat akan muncul di sini -->
-            </div>
+                </div>
             <form id="chat-form" class="flex-shrink-0 p-4 border-t border-slate-700 flex gap-2">
                 <input id="chat-input" type="text" placeholder="Ketik pesan..." class="w-full bg-slate-700 border border-slate-600 rounded-lg p-2 focus:ring-2 focus:ring-cyan-500 transition">
                 <button type="submit" class="bg-cyan-500 hover:bg-cyan-600 font-semibold rounded-lg px-4 py-2 transition-colors">Kirim</button>
@@ -418,6 +417,7 @@
         // --- HELPER FUNCTIONS ---
         const formatRupiah = (amount) => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(amount);
         const formatDate = (ts) => ts ? ts.toDate().toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' }) : '-';
+        const formatDateTime = (ts) => ts ? ts.toDate().toLocaleString('id-ID', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '-';
         const getTodayString = () => new Date().toISOString().slice(0, 10);
         const toInputDate = (ts) => ts ? new Date(ts.toDate().getTime() - (ts.toDate().getTimezoneOffset() * 60000)).toISOString().split('T')[0] : '';
         async function logAction(action, details) {
@@ -719,16 +719,21 @@
             operator: null,
         };
         
-        function formatNumberString(str) {
-            if (typeof str !== 'string') str = String(str);
-            const [integerPart, decimalPart] = str.split('.');
-            const unformattedInteger = integerPart.replace(/,/g, '');
-            const formattedInteger = new Intl.NumberFormat('id-ID').format(unformattedInteger);
-            return decimalPart != null ? `${formattedInteger},${decimalPart}` : formattedInteger;
+        function formatDisplayNumber(value) {
+            const stringValue = String(value);
+            const [integerPart, decimalPart] = stringValue.split('.');
+            let formattedInteger = new Intl.NumberFormat('id-ID').format(integerPart);
+            if (decimalPart != null) {
+                return `${formattedInteger},${decimalPart}`;
+            }
+            if (stringValue.endsWith('.')) {
+                 return `${formattedInteger},`;
+            }
+            return formattedInteger;
         }
 
         function updateCalculatorDisplay() {
-            calculatorDisplay.textContent = formatNumberString(calculator.displayValue.replace('.', ','));
+            calculatorDisplay.textContent = formatDisplayNumber(calculator.displayValue);
         }
         
         function inputDigit(digit) {
@@ -758,7 +763,7 @@
 
             if (operator && calculator.waitingForSecondOperand) {
                 calculator.operator = nextOperator;
-                calculatorHistoryDisplay.textContent = `${formatNumberString(String(firstOperand))} ${nextOperator}`;
+                calculatorHistoryDisplay.textContent = `${formatDisplayNumber(String(firstOperand))} ${nextOperator}`;
                 return;
             }
 
@@ -772,7 +777,7 @@
 
             calculator.waitingForSecondOperand = true;
             calculator.operator = nextOperator;
-            calculatorHistoryDisplay.textContent = `${formatNumberString(calculator.displayValue)} ${nextOperator}`;
+            calculatorHistoryDisplay.textContent = `${formatDisplayNumber(calculator.displayValue)} ${nextOperator}`;
         }
         
         function performCalculation(first, second, op) {
@@ -820,7 +825,7 @@
                         const secondOperand = parseFloat(displayValue);
                         const result = performCalculation(firstOperand, secondOperand, operator);
 
-                        calculatorHistoryDisplay.textContent = `${formatNumberString(String(firstOperand))} ${operator} ${formatNumberString(displayValue)} =`;
+                        calculatorHistoryDisplay.textContent = `${formatDisplayNumber(String(firstOperand))} ${operator} ${formatDisplayNumber(displayValue)} =`;
                         calculator.displayValue = String(result);
                         calculator.operator = null;
                         calculator.firstOperand = null; 
@@ -949,7 +954,6 @@
                     await updateDoc(recordRef, { isPaid: newPaidStatus });
                     const status = newPaidStatus ? 'Lunas' : 'Belum Lunas';
                     await logAction(`Ubah Status ${record.type}`, `${record.name} menjadi ${status}`);
-                    // *** PERBAIKAN DI SINI: Panggil ulang fungsi filter secara otomatis ***
                     filterControls.applyBtn.click();
                  } catch (error) { console.error("Error update status:", error); }
             } else if (button.classList.contains('edit-btn')) {
@@ -1004,7 +1008,6 @@
              const isActiveFilter = typeFilter !== 'semua' || nameFilter || startDate || endDate;
              if (isActiveFilter) {
                  let netFlow = 0;
-                 // *** PERBAIKAN DI SINI: Logika arus kas yang disempurnakan ***
                  filteredRecords.forEach(record => {
                     switch (record.type) {
                         case 'income':
@@ -1015,12 +1018,10 @@
                             netFlow -= record.amount;
                             break;
                         case 'debt':
-                            // Saat Anda membuat hutang, Anda menerima uang. Arus kas masuk.
-                            netFlow += record.amount;
+                            if (!record.isPaid) { netFlow += record.amount; }
                             break;
                         case 'receivable':
-                             // Saat Anda membuat piutang, Anda memberi uang. Arus kas keluar.
-                            netFlow -= record.amount;
+                             if (!record.isPaid) { netFlow -= record.amount; }
                             break;
                     }
                  });
@@ -1072,7 +1073,7 @@
         chatBtn.addEventListener('click', () => {
             chatModal.classList.remove('hidden');
             chatNotificationDot.classList.add('hidden');
-            isChatOpen = true; // *** PERBAIKAN DI SINI ***
+            isChatOpen = true; 
             fabMenu.classList.add('hidden');
             fabMainBtn.classList.remove('rotate-45');
             chatMessagesArea.scrollTop = chatMessagesArea.scrollHeight;
@@ -1090,7 +1091,7 @@
         
         closeChatBtn.addEventListener('click', () => {
             chatModal.classList.add('hidden');
-            isChatOpen = false; // *** PERBAIKAN DI SINI ***
+            isChatOpen = false; 
         });
         
         calculatorModal.addEventListener('click', (e) => {
@@ -1139,7 +1140,7 @@
                  const log = doc.data();
                  const logEl = document.createElement('div');
                  logEl.className = 'text-sm text-slate-300 p-2 border-b border-slate-700';
-                 logEl.innerHTML = `<span class="font-semibold text-cyan-400">${log.user}</span>: ${log.action} <span class="text-slate-400">(${log.details})</span> - <span class="text-xs">${formatDate(log.timestamp)}</span>`;
+                 logEl.innerHTML = `<span class="font-semibold text-cyan-400">${log.user}</span>: ${log.action} <span class="text-slate-400">(${log.details})</span> - <span class="text-xs">${formatDateTime(log.timestamp)}</span>`;
                  auditLogContent.appendChild(logEl);
             });
         });
@@ -1151,20 +1152,13 @@
         }).toDestination();
 
         onSnapshot(query(chatCol, orderBy("timestamp")), (snapshot) => {
+            let hasNewMessage = false;
             snapshot.docChanges().forEach(change => {
                 if (change.type === "added") {
                     const msg = change.doc.data();
                     
                     if (!isInitialChatLoad && msg.user !== currentUser) {
-                         // Mainkan suara "Tri-tone"
-                        const now = Tone.now();
-                        notificationSynth.triggerAttackRelease("G5", "16n", now);
-                        notificationSynth.triggerAttackRelease("A5", "16n", now + 0.12);
-                        notificationSynth.triggerAttackRelease("C6", "16n", now + 0.24);
-
-                        if (!isChatOpen) { 
-                             chatNotificationDot.classList.remove('hidden');
-                        }
+                        hasNewMessage = true;
                     }
 
                     const msgWrapper = document.createElement('div');
@@ -1194,7 +1188,22 @@
                     chatMessagesArea.appendChild(msgWrapper);
                 }
             });
-            isInitialChatLoad = false;
+            
+            if (hasNewMessage) {
+                if (Tone.context.state === 'running') {
+                    const now = Tone.now();
+                    notificationSynth.triggerAttackRelease("G5", "16n", now);
+                    notificationSynth.triggerAttackRelease("A5", "16n", now + 0.1);
+                    notificationSynth.triggerAttackRelease("C6", "16n", now + 0.2);
+                }
+                if (!isChatOpen) { 
+                     chatNotificationDot.classList.remove('hidden');
+                }
+            }
+
+            if(isInitialChatLoad && snapshot.docChanges().length > 0) {
+                isInitialChatLoad = false;
+            }
             if (chatMessagesArea.children.length > 0) {
                  chatMessagesArea.scrollTop = chatMessagesArea.scrollHeight;
             }
