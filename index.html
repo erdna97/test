@@ -196,6 +196,7 @@
 
     <div id="fab-container" class="fixed bottom-6 right-6 z-40">
         <div id="fab-menu" class="flex flex-col items-center mb-2 space-y-2 hidden">
+            <button id="chat-btn" class="fab-menu-item w-40 bg-teal-600 text-white rounded-lg px-4 py-2 text-sm font-semibold shadow-lg hover:bg-teal-700 transition-transform transform hover:scale-105">Chat</button>
             <button id="calculator-btn" class="fab-menu-item w-40 bg-indigo-600 text-white rounded-lg px-4 py-2 text-sm font-semibold shadow-lg hover:bg-indigo-700 transition-transform transform hover:scale-105">Kalkulator</button>
         </div>
         <button id="fab-main-btn" class="w-14 h-14 bg-cyan-500 rounded-full flex items-center justify-center text-white shadow-lg hover:bg-cyan-600 transition-transform transform hover:rotate-45">
@@ -283,6 +284,21 @@
             </div>
         </div>
     </div>
+    <div id="chat-modal" class="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center p-4 hidden z-50">
+        <div class="bg-slate-800 rounded-xl shadow-2xl w-full max-w-lg h-[80vh] flex flex-col">
+            <div class="flex-shrink-0 p-4 border-b border-slate-700 flex justify-between items-center">
+                <h3 class="text-xl font-bold text-white">Obrolan Tim</h3>
+                <button id="close-chat-btn" class="text-slate-400 hover:text-white text-3xl leading-none">&times;</button>
+            </div>
+            <div id="chat-messages-area" class="flex-grow p-4 space-y-4 overflow-y-auto custom-scrollbar">
+                <!-- Pesan chat akan muncul di sini -->
+            </div>
+            <form id="chat-form" class="flex-shrink-0 p-4 border-t border-slate-700 flex gap-2">
+                <input id="chat-input" type="text" placeholder="Ketik pesan..." class="w-full bg-slate-700 border border-slate-600 rounded-lg p-2 focus:ring-2 focus:ring-cyan-500 transition">
+                <button type="submit" class="bg-cyan-500 hover:bg-cyan-600 font-semibold rounded-lg px-4 py-2 transition-colors">Kirim</button>
+            </form>
+        </div>
+    </div>
     <div id="custom-alert-modal" class="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center p-4 hidden z-50">
         <div class="bg-slate-800 rounded-xl shadow-2xl p-6 w-full max-w-sm space-y-4 text-center">
             <h3 id="custom-alert-title" class="text-xl font-bold text-white">Peringatan</h3>
@@ -332,6 +348,7 @@
 
         const transactionsCol = collection(db, "transactions");
         const auditLogCol = collection(db, "auditLog");
+        const chatCol = collection(db, "chatMessages"); 
 
         // --- STATE & USERS ---
         let currentUser = null;
@@ -375,10 +392,13 @@
               auditLogContent = getEl('audit-log-content'), manageNamesBtn = getEl('manage-names-btn'),
               manageNamesModal = getEl('manage-names-modal'), closeManageNamesBtn = getEl('close-manage-names-btn'), manageNamesContent = getEl('manage-names-content'),
               editModal = getEl('edit-modal'), editForm = getEl('edit-form'), cancelEditBtn = getEl('cancel-edit-btn'),
-              fabMainBtn = getEl('fab-main-btn'), fabMenu = getEl('fab-menu'), calculatorBtn = getEl('calculator-btn'),
+              fabMainBtn = getEl('fab-main-btn'), fabMenu = getEl('fab-menu'), 
+              calculatorBtn = getEl('calculator-btn'), chatBtn = getEl('chat-btn'),
               calculatorModal = getEl('calculator-modal'), closeCalculatorBtn = getEl('close-calculator-btn'), calculatorDisplay = getEl('calculator-display'),
               calculatorHistoryDisplay = getEl('calculator-history-display'),
-              calculatorKeys = getEl('calculator-keys');
+              calculatorKeys = getEl('calculator-keys'),
+              chatModal = getEl('chat-modal'), closeChatBtn = getEl('close-chat-btn'),
+              chatMessagesArea = getEl('chat-messages-area'), chatForm = getEl('chat-form'), chatInput = getEl('chat-input');
               
         // --- SVG ICONS ---
         const trashIconSVG = `<svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg"><path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd"></path></svg>`;
@@ -692,7 +712,8 @@
         };
         
         function formatNumberString(str) {
-            const [integerPart, decimalPart] = String(str).split('.');
+            if (typeof str !== 'string') str = String(str);
+            const [integerPart, decimalPart] = str.split('.');
             const unformattedInteger = integerPart.replace(/,/g, '');
             const formattedInteger = new Intl.NumberFormat('id-ID').format(unformattedInteger);
             return decimalPart != null ? `${formattedInteger},${decimalPart}` : formattedInteger;
@@ -984,16 +1005,12 @@
                             netFlow -= record.amount;
                             break;
                         case 'debt':
-                             // Hanya hutang yang belum lunas yang dianggap sebagai arus kas masuk.
-                            if (!record.isPaid) {
-                                netFlow += record.amount;
-                            }
+                            // Hutang dianggap uang masuk saat dibuat.
+                            netFlow += record.amount;
                             break;
                         case 'receivable':
-                            // Hanya piutang yang belum lunas yang dianggap sebagai arus kas keluar.
-                             if (!record.isPaid) {
-                                netFlow -= record.amount;
-                            }
+                             // Piutang dianggap uang keluar saat dibuat.
+                            netFlow -= record.amount;
                             break;
                     }
                  });
@@ -1041,6 +1058,13 @@
             fabMenu.classList.add('hidden');
             fabMainBtn.classList.remove('rotate-45');
         });
+        
+        chatBtn.addEventListener('click', () => {
+            chatModal.classList.remove('hidden');
+            fabMenu.classList.add('hidden');
+            fabMainBtn.classList.remove('rotate-45');
+            chatMessagesArea.scrollTop = chatMessagesArea.scrollHeight;
+        });
 
         const hideCalculator = () => {
             calculatorModal.classList.add('hidden');
@@ -1050,6 +1074,10 @@
         closeCalculatorBtn.addEventListener('click', () => {
             hideCalculator();
             resetCalculator();
+        });
+        
+        closeChatBtn.addEventListener('click', () => {
+            chatModal.classList.add('hidden');
         });
         
         calculatorModal.addEventListener('click', (e) => {
@@ -1062,6 +1090,24 @@
              const key = e.target.closest('button');
             if (!key) return;
             handleCalculatorAction(key.dataset.action, key.textContent.trim());
+        });
+
+        chatForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const messageText = chatInput.value.trim();
+            if (messageText) {
+                try {
+                    await addDoc(chatCol, {
+                        text: messageText,
+                        user: currentUser,
+                        timestamp: serverTimestamp()
+                    });
+                    chatInput.value = '';
+                } catch(error) {
+                    console.error("Gagal mengirim pesan:", error);
+                    showAlert("Gagal mengirim pesan.");
+                }
+            }
         });
 
         // --- REAL-TIME LISTENER ---
@@ -1083,6 +1129,39 @@
                  logEl.innerHTML = `<span class="font-semibold text-cyan-400">${log.user}</span>: ${log.action} <span class="text-slate-400">(${log.details})</span> - <span class="text-xs">${formatDate(log.timestamp)}</span>`;
                  auditLogContent.appendChild(logEl);
             });
+        });
+        
+        onSnapshot(query(chatCol, orderBy("timestamp")), (snapshot) => {
+            chatMessagesArea.innerHTML = '';
+            snapshot.docs.forEach(doc => {
+                const msg = doc.data();
+                const msgWrapper = document.createElement('div');
+                const isCurrentUser = msg.user === currentUser;
+
+                msgWrapper.className = `flex flex-col ${isCurrentUser ? 'items-end' : 'items-start'}`;
+
+                const bubble = document.createElement('div');
+                bubble.className = `max-w-xs md:max-w-md p-3 rounded-xl ${isCurrentUser ? 'bg-cyan-600 rounded-br-none' : 'bg-slate-600 rounded-bl-none'}`;
+                
+                const userEl = document.createElement('p');
+                userEl.className = `text-xs font-bold ${isCurrentUser ? 'text-cyan-200' : 'text-slate-300'}`;
+                userEl.textContent = msg.user;
+                
+                const textEl = document.createElement('p');
+                textEl.className = 'text-white text-sm';
+                textEl.textContent = msg.text;
+
+                const timeEl = document.createElement('p');
+                timeEl.className = 'text-xs text-slate-400 mt-1 text-right';
+                timeEl.textContent = msg.timestamp ? msg.timestamp.toDate().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit'}) : '';
+                
+                bubble.appendChild(userEl);
+                bubble.appendChild(textEl);
+                bubble.appendChild(timeEl);
+                msgWrapper.appendChild(bubble);
+                chatMessagesArea.appendChild(msgWrapper);
+            });
+            chatMessagesArea.scrollTop = chatMessagesArea.scrollHeight;
         });
 
         // --- INISIALISASI ---
