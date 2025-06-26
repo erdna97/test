@@ -10,7 +10,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <!-- *** PERUBAHAN DI SINI: Menambahkan Tone.js untuk notifikasi suara *** -->
+    <!-- Menambahkan Tone.js untuk notifikasi suara -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.7.77/Tone.js"></script>
     <style>
         body { font-family: 'Inter', sans-serif; }
@@ -360,6 +360,7 @@
         let allRecords = [];
         let editingRecordId = null;
         let isInitialChatLoad = true;
+        let isChatOpen = false;
         const USERS = {
             andre: "180125andre",
             dila: "dila180125"
@@ -883,6 +884,8 @@
                 logAction("User Masuk", `User '${currentUser}' telah bergabung.`);
                 loginError.classList.add('hidden');
                 passwordInput.value = '';
+                // *** PERBAIKAN DI SINI: Memulai AudioContext setelah interaksi pengguna ***
+                Tone.start();
             } else {
                 loginError.classList.remove('hidden');
             }
@@ -1000,17 +1003,21 @@
              const isActiveFilter = typeFilter !== 'semua' || nameFilter || startDate || endDate;
              if (isActiveFilter) {
                  let netFlow = 0;
-                 // *** PERBAIKAN DI SINI: Logika perhitungan arus kas yang disempurnakan ***
+                 // *** PERBAIKAN DI SINI: Logika arus kas yang disempurnakan ***
                  filteredRecords.forEach(record => {
                     switch (record.type) {
                         case 'income':
-                        case 'debt': // Hutang (uang masuk)
                             netFlow += record.amount;
                             break;
                         case 'expense':
                         case 'savings':
-                        case 'receivable': // Piutang (uang keluar)
                             netFlow -= record.amount;
+                            break;
+                        case 'debt':
+                             if (!record.isPaid) { netFlow += record.amount; }
+                            break;
+                        case 'receivable':
+                             if (!record.isPaid) { netFlow -= record.amount; }
                             break;
                     }
                  });
@@ -1061,7 +1068,8 @@
         
         chatBtn.addEventListener('click', () => {
             chatModal.classList.remove('hidden');
-            chatNotificationDot.classList.add('hidden'); // Sembunyikan notifikasi saat chat dibuka
+            chatNotificationDot.classList.add('hidden');
+            isChatOpen = true; // *** PERBAIKAN DI SINI ***
             fabMenu.classList.add('hidden');
             fabMainBtn.classList.remove('rotate-45');
             chatMessagesArea.scrollTop = chatMessagesArea.scrollHeight;
@@ -1079,6 +1087,7 @@
         
         closeChatBtn.addEventListener('click', () => {
             chatModal.classList.add('hidden');
+            isChatOpen = false; // *** PERBAIKAN DI SINI ***
         });
         
         calculatorModal.addEventListener('click', (e) => {
@@ -1135,14 +1144,13 @@
         const synth = new Tone.Synth().toDestination();
 
         onSnapshot(query(chatCol, orderBy("timestamp")), (snapshot) => {
-            chatMessagesArea.innerHTML = '';
             snapshot.docChanges().forEach(change => {
                 if (change.type === "added") {
                     const msg = change.doc.data();
                     
                     if (!isInitialChatLoad && msg.user !== currentUser) {
                         synth.triggerAttackRelease("C5", "8n");
-                        if (chatModal.classList.contains('hidden')) {
+                        if (!isChatOpen) { // *** PERBAIKAN DI SINI ***
                              chatNotificationDot.classList.remove('hidden');
                         }
                     }
