@@ -10,6 +10,8 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <!-- *** PERUBAHAN DI SINI: Menambahkan Tone.js untuk notifikasi suara *** -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.7.77/Tone.js"></script>
     <style>
         body { font-family: 'Inter', sans-serif; }
         input[type=number]::-webkit-inner-spin-button,
@@ -196,7 +198,10 @@
 
     <div id="fab-container" class="fixed bottom-6 right-6 z-40">
         <div id="fab-menu" class="flex flex-col items-center mb-2 space-y-2 hidden">
-            <button id="chat-btn" class="fab-menu-item w-40 bg-teal-600 text-white rounded-lg px-4 py-2 text-sm font-semibold shadow-lg hover:bg-teal-700 transition-transform transform hover:scale-105">Chat</button>
+            <button id="chat-btn" class="relative fab-menu-item w-40 bg-teal-600 text-white rounded-lg px-4 py-2 text-sm font-semibold shadow-lg hover:bg-teal-700 transition-transform transform hover:scale-105">
+                Chat
+                <span id="chat-notification-dot" class="absolute -top-1 -right-1 block w-3 h-3 bg-red-500 rounded-full hidden"></span>
+            </button>
             <button id="calculator-btn" class="fab-menu-item w-40 bg-indigo-600 text-white rounded-lg px-4 py-2 text-sm font-semibold shadow-lg hover:bg-indigo-700 transition-transform transform hover:scale-105">Kalkulator</button>
         </div>
         <button id="fab-main-btn" class="w-14 h-14 bg-cyan-500 rounded-full flex items-center justify-center text-white shadow-lg hover:bg-cyan-600 transition-transform transform hover:rotate-45">
@@ -354,6 +359,7 @@
         let currentUser = null;
         let allRecords = [];
         let editingRecordId = null;
+        let isInitialChatLoad = true;
         const USERS = {
             andre: "180125andre",
             dila: "dila180125"
@@ -394,6 +400,7 @@
               editModal = getEl('edit-modal'), editForm = getEl('edit-form'), cancelEditBtn = getEl('cancel-edit-btn'),
               fabMainBtn = getEl('fab-main-btn'), fabMenu = getEl('fab-menu'), 
               calculatorBtn = getEl('calculator-btn'), chatBtn = getEl('chat-btn'),
+              chatNotificationDot = getEl('chat-notification-dot'),
               calculatorModal = getEl('calculator-modal'), closeCalculatorBtn = getEl('close-calculator-btn'), calculatorDisplay = getEl('calculator-display'),
               calculatorHistoryDisplay = getEl('calculator-history-display'),
               calculatorKeys = getEl('calculator-keys'),
@@ -939,7 +946,6 @@
                     await updateDoc(recordRef, { isPaid: newPaidStatus });
                     const status = newPaidStatus ? 'Lunas' : 'Belum Lunas';
                     await logAction(`Ubah Status ${record.type}`, `${record.name} menjadi ${status}`);
-                    // *** PERBAIKAN DI SINI: Panggil ulang fungsi filter secara otomatis ***
                     filterControls.applyBtn.click();
                  } catch (error) { console.error("Error update status:", error); }
             } else if (button.classList.contains('edit-btn')) {
@@ -998,18 +1004,12 @@
                  filteredRecords.forEach(record => {
                     switch (record.type) {
                         case 'income':
+                        case 'debt': // Hutang (uang masuk)
                             netFlow += record.amount;
                             break;
                         case 'expense':
                         case 'savings':
-                            netFlow -= record.amount;
-                            break;
-                        case 'debt':
-                            // Hutang dianggap uang masuk saat dibuat.
-                            netFlow += record.amount;
-                            break;
-                        case 'receivable':
-                             // Piutang dianggap uang keluar saat dibuat.
+                        case 'receivable': // Piutang (uang keluar)
                             netFlow -= record.amount;
                             break;
                     }
@@ -1061,6 +1061,7 @@
         
         chatBtn.addEventListener('click', () => {
             chatModal.classList.remove('hidden');
+            chatNotificationDot.classList.add('hidden'); // Sembunyikan notifikasi saat chat dibuka
             fabMenu.classList.add('hidden');
             fabMainBtn.classList.remove('rotate-45');
             chatMessagesArea.scrollTop = chatMessagesArea.scrollHeight;
@@ -1131,36 +1132,49 @@
             });
         });
         
+        const synth = new Tone.Synth().toDestination();
+
         onSnapshot(query(chatCol, orderBy("timestamp")), (snapshot) => {
             chatMessagesArea.innerHTML = '';
-            snapshot.docs.forEach(doc => {
-                const msg = doc.data();
-                const msgWrapper = document.createElement('div');
-                const isCurrentUser = msg.user === currentUser;
+            snapshot.docChanges().forEach(change => {
+                if (change.type === "added") {
+                    const msg = change.doc.data();
+                    
+                    if (!isInitialChatLoad && msg.user !== currentUser) {
+                        synth.triggerAttackRelease("C5", "8n");
+                        if (chatModal.classList.contains('hidden')) {
+                             chatNotificationDot.classList.remove('hidden');
+                        }
+                    }
 
-                msgWrapper.className = `flex flex-col ${isCurrentUser ? 'items-end' : 'items-start'}`;
+                    const msgWrapper = document.createElement('div');
+                    const isCurrentUser = msg.user === currentUser;
 
-                const bubble = document.createElement('div');
-                bubble.className = `max-w-xs md:max-w-md p-3 rounded-xl ${isCurrentUser ? 'bg-cyan-600 rounded-br-none' : 'bg-slate-600 rounded-bl-none'}`;
-                
-                const userEl = document.createElement('p');
-                userEl.className = `text-xs font-bold ${isCurrentUser ? 'text-cyan-200' : 'text-slate-300'}`;
-                userEl.textContent = msg.user;
-                
-                const textEl = document.createElement('p');
-                textEl.className = 'text-white text-sm';
-                textEl.textContent = msg.text;
+                    msgWrapper.className = `flex flex-col ${isCurrentUser ? 'items-end' : 'items-start'}`;
 
-                const timeEl = document.createElement('p');
-                timeEl.className = 'text-xs text-slate-400 mt-1 text-right';
-                timeEl.textContent = msg.timestamp ? msg.timestamp.toDate().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit'}) : '';
-                
-                bubble.appendChild(userEl);
-                bubble.appendChild(textEl);
-                bubble.appendChild(timeEl);
-                msgWrapper.appendChild(bubble);
-                chatMessagesArea.appendChild(msgWrapper);
+                    const bubble = document.createElement('div');
+                    bubble.className = `max-w-xs md:max-w-md p-3 rounded-xl ${isCurrentUser ? 'bg-cyan-600 rounded-br-none' : 'bg-slate-600 rounded-bl-none'}`;
+                    
+                    const userEl = document.createElement('p');
+                    userEl.className = `text-xs font-bold ${isCurrentUser ? 'text-cyan-200' : 'text-slate-300'}`;
+                    userEl.textContent = msg.user;
+                    
+                    const textEl = document.createElement('p');
+                    textEl.className = 'text-white text-sm';
+                    textEl.textContent = msg.text;
+
+                    const timeEl = document.createElement('p');
+                    timeEl.className = 'text-xs text-slate-400 mt-1 text-right';
+                    timeEl.textContent = msg.timestamp ? msg.timestamp.toDate().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit'}) : '';
+                    
+                    bubble.appendChild(userEl);
+                    bubble.appendChild(textEl);
+                    bubble.appendChild(timeEl);
+                    msgWrapper.appendChild(bubble);
+                    chatMessagesArea.appendChild(msgWrapper);
+                }
             });
+            isInitialChatLoad = false;
             chatMessagesArea.scrollTop = chatMessagesArea.scrollHeight;
         });
 
